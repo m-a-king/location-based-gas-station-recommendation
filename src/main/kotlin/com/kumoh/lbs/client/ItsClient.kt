@@ -2,7 +2,7 @@ package com.kumoh.lbs.client
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.kumoh.lbs.config.ItsProperties
-import org.slf4j.LoggerFactory
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.core.ParameterizedTypeReference
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
@@ -15,8 +15,8 @@ class ItsClient(
 
     companion object {
         const val BASE_URL = "https://openapi.its.go.kr:9443"
+        private val logger = KotlinLogging.logger {}
     }
-    private val log = LoggerFactory.getLogger(javaClass)
 
     /**
      * 영역 내 실시간 교통소통정보를 조회합니다.
@@ -50,10 +50,10 @@ class ItsClient(
                 .body(object : ParameterizedTypeReference<ItsTrafficResponse>() {})
 
             val links = response?.body?.items ?: emptyList()
-            log.info("ITS API 응답: {} 건, 영역=[{},{},{},{}]", links.size, minX, minY, maxX, maxY)
+            logger.info { "ITS API 응답: ${links.size} 건, 영역=[$minX,$minY,$maxX,$maxY]" }
             links
         } catch (e: Exception) {
-            log.warn("ITS API 호출 실패, 교통 데이터 없이 진행: {}", e.message)
+            logger.warn { "ITS API 호출 실패, 교통 데이터 없이 진행: ${e.message}" }
             emptyList()
         }
     }
