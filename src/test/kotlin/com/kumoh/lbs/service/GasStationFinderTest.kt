@@ -1,6 +1,7 @@
 package com.kumoh.lbs.service
 
 import com.kumoh.lbs.client.OpinetClient
+import com.kumoh.lbs.domain.Coordinate
 import com.kumoh.lbs.domain.GasStation
 import com.kumoh.lbs.domain.strategy.PriceDistanceStrategy
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -31,7 +32,7 @@ class GasStationFinderTest {
     lateinit var gasStationFinder: GasStationFinder
 
     private fun stubFrontRoadSpeed(speed: Double = 0.0) {
-        whenever(frontRoadSpeedFinder.findSpeed(any(), any())).thenReturn(speed)
+        whenever(frontRoadSpeedFinder.findSpeed(any())).thenReturn(speed)
     }
 
     @Test
@@ -44,7 +45,7 @@ class GasStationFinderTest {
         )
         whenever(opinetClient.searchByRadius(any(), any(), any(), any(), any())).thenReturn(stations)
 
-        val result = gasStationFinder.findBest(100.0, 200.0, radius = 5000, fuelType = "B027", limit = 5)
+        val result = gasStationFinder.findBest(Coordinate.fromKatec(Coordinate.Katec(100.0, 200.0)), radius = 5000, fuelType = "B027", limit = 5)
 
         result.first().station.name shouldBe "싼주유소"
         result.last().station.name shouldBe "비싼주유소"
@@ -59,7 +60,7 @@ class GasStationFinderTest {
         )
         whenever(opinetClient.searchByRadius(any(), any(), any(), any(), any())).thenReturn(stations)
 
-        val result = gasStationFinder.findBest(100.0, 200.0, radius = 5000, fuelType = "B027", limit = 5)
+        val result = gasStationFinder.findBest(Coordinate.fromKatec(Coordinate.Katec(100.0, 200.0)), radius = 5000, fuelType = "B027", limit = 5)
 
         result.first().station.name shouldBe "가까운주유소"
     }
@@ -72,7 +73,7 @@ class GasStationFinderTest {
         }
         whenever(opinetClient.searchByRadius(any(), any(), any(), any(), any())).thenReturn(stations)
 
-        val result = gasStationFinder.findBest(100.0, 200.0, radius = 5000, fuelType = "B027", limit = 3)
+        val result = gasStationFinder.findBest(Coordinate.fromKatec(Coordinate.Katec(100.0, 200.0)), radius = 5000, fuelType = "B027", limit = 3)
 
         result shouldHaveSize 3
     }
@@ -81,7 +82,7 @@ class GasStationFinderTest {
     fun `검색 결과가 없으면 빈 리스트를 반환한다`() {
         whenever(opinetClient.searchByRadius(any(), any(), any(), any(), any())).thenReturn(emptyList())
 
-        val result = gasStationFinder.findBest(100.0, 200.0, radius = 5000, fuelType = "B027", limit = 5)
+        val result = gasStationFinder.findBest(Coordinate.fromKatec(Coordinate.Katec(100.0, 200.0)), radius = 5000, fuelType = "B027", limit = 5)
 
         result.shouldBeEmpty()
     }
@@ -95,8 +96,7 @@ class GasStationFinderTest {
         id = id,
         name = name,
         brand = "SKE",
-        katecX = 100.0,
-        katecY = 200.0,
+        coordinate = Coordinate.fromKatec(Coordinate.Katec(100.0, 200.0)),
         price = price,
         distance = distance
     )

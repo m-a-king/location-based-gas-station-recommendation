@@ -1,9 +1,8 @@
 package com.kumoh.lbs.service
 
+import com.kumoh.lbs.domain.Coordinate
 import com.kumoh.lbs.domain.entity.MoctLink
 import com.kumoh.lbs.repository.MoctLinkRepository
-import com.kumoh.lbs.domain.LatLon
-import com.kumoh.lbs.util.CoordinateConverter
 import com.kumoh.lbs.service.NearestLinkFinder.LinkMatchResult
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -21,19 +20,11 @@ class NearestLinkFinderTest {
     @Mock
     lateinit var moctLinkRepository: MoctLinkRepository
 
-    @Mock
-    lateinit var coordinateConverter: CoordinateConverter
-
     @InjectMocks
     lateinit var nearestLinkFinder: NearestLinkFinder
 
-    private fun stubCoordinates(
-        stationLat: Double = 37.0,
-        stationLon: Double = 127.0
-    ) {
-        whenever(coordinateConverter.katecToWgs84(any(), any()))
-            .thenReturn(LatLon(stationLat, stationLon))
-    }
+    private fun stationAt(lat: Double = 37.0, lon: Double = 127.0) =
+        Coordinate.fromWgs84(Coordinate.Wgs84(lat, lon))
 
     private fun moctLink(
         linkId: String,
@@ -57,30 +48,30 @@ class NearestLinkFinderTest {
 
     @Test
     fun `링크가 없으면 NotFound를 반환한다`() {
-        stubCoordinates()
+        val location = stationAt()
         whenever(moctLinkRepository.findLinksInBoundingBox(any(), any(), any(), any()))
             .thenReturn(emptyList())
 
-        val result = nearestLinkFinder.findNearestLinkId(100.0, 200.0)
+        val result = nearestLinkFinder.findNearestLinkId(location)
 
         result.shouldBeInstanceOf<LinkMatchResult.NotFound>()
     }
 
     @Test
     fun `후보가 1개면 해당 linkId를 반환한다`() {
-        stubCoordinates()
+        val location = stationAt()
         val link = moctLink("LINK001", 126.999, 37.0, 127.001, 37.0)
         whenever(moctLinkRepository.findLinksInBoundingBox(any(), any(), any(), any()))
             .thenReturn(listOf(link))
 
-        val result = nearestLinkFinder.findNearestLinkId(100.0, 200.0)
+        val result = nearestLinkFinder.findNearestLinkId(location)
 
         result shouldBe LinkMatchResult.Found("LINK001")
     }
 
     @Test
     fun `가장 가까운 링크를 선택한다`() {
-        stubCoordinates(stationLat = 37.0, stationLon = 127.0)
+        val location = stationAt(lat = 37.0, lon = 127.0)
 
         val near = moctLink("NEAR", 127.0001, 37.0005, 127.0001, 36.9995)
         val far = moctLink("FAR", 127.005, 37.005, 127.005, 36.995)
@@ -88,7 +79,7 @@ class NearestLinkFinderTest {
         whenever(moctLinkRepository.findLinksInBoundingBox(any(), any(), any(), any()))
             .thenReturn(listOf(far, near))
 
-        val result = nearestLinkFinder.findNearestLinkId(100.0, 200.0)
+        val result = nearestLinkFinder.findNearestLinkId(location)
 
         result shouldBe LinkMatchResult.Found("NEAR")
     }

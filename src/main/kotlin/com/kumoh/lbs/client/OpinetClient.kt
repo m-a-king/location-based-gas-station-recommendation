@@ -2,6 +2,7 @@ package com.kumoh.lbs.client
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.kumoh.lbs.config.OpinetProperties
+import com.kumoh.lbs.domain.Coordinate
 import com.kumoh.lbs.domain.GasStation
 import org.springframework.core.ParameterizedTypeReference
 import org.springframework.stereotype.Component
@@ -71,8 +72,7 @@ data class OpinetStation(
         id = stationId,
         name = stationName,
         brand = brandCode,
-        katecX = katecX,
-        katecY = katecY,
+        coordinate = Coordinate.fromKatec(Coordinate.Katec(katecX, katecY)),
         price = price,
         distance = distance
     )

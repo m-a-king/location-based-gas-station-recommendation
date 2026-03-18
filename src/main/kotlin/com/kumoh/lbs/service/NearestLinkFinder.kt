@@ -1,15 +1,14 @@
 package com.kumoh.lbs.service
 
+import com.kumoh.lbs.domain.Coordinate
 import com.kumoh.lbs.repository.MoctLinkRepository
-import com.kumoh.lbs.util.CoordinateConverter
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import kotlin.math.sqrt
 
 @Service
 class NearestLinkFinder(
-    private val moctLinkRepository: MoctLinkRepository,
-    private val coordinateConverter: CoordinateConverter
+    private val moctLinkRepository: MoctLinkRepository
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -23,28 +22,23 @@ class NearestLinkFinder(
         data object NotFound : LinkMatchResult
     }
 
-    fun findNearestLinkId(
-        stationKatecX: Double,
-        stationKatecY: Double
-    ): LinkMatchResult {
-        val stationWgs = coordinateConverter.katecToWgs84(stationKatecX, stationKatecY)
-
+    fun findNearestLinkId(stationLocation: Coordinate): LinkMatchResult {
         val searchRadiusDegrees = SEARCH_RADIUS_METERS / METERS_PER_DEGREE
         val candidates = moctLinkRepository.findLinksInBoundingBox(
-            minLon = stationWgs.longitude - searchRadiusDegrees,
-            maxLon = stationWgs.longitude + searchRadiusDegrees,
-            minLat = stationWgs.latitude - searchRadiusDegrees,
-            maxLat = stationWgs.latitude + searchRadiusDegrees
+            minLon = stationLocation.wgs84.longitude - searchRadiusDegrees,
+            maxLon = stationLocation.wgs84.longitude + searchRadiusDegrees,
+            minLat = stationLocation.wgs84.latitude - searchRadiusDegrees,
+            maxLat = stationLocation.wgs84.latitude + searchRadiusDegrees
         )
 
         if (candidates.isEmpty()) {
-            log.debug("주유소 주변 링크 없음: katec=({}, {})", stationKatecX, stationKatecY)
+            log.debug("주유소 주변 링크 없음: katec=({}, {})", stationLocation.katec.x, stationLocation.katec.y)
             return LinkMatchResult.NotFound
         }
 
         val best = candidates.minBy { link ->
             pointToSegmentDistance(
-                stationWgs.longitude, stationWgs.latitude,
+                stationLocation.wgs84.longitude, stationLocation.wgs84.latitude,
                 link.fLongitude, link.fLatitude,
                 link.tLongitude, link.tLatitude
             )

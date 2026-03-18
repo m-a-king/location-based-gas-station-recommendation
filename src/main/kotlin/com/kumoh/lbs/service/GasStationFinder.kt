@@ -2,6 +2,7 @@ package com.kumoh.lbs.service
 
 import com.kumoh.lbs.client.OpinetClient
 import com.kumoh.lbs.client.OpinetClient.SortType
+import com.kumoh.lbs.domain.Coordinate
 import com.kumoh.lbs.domain.ScoredGasStation
 import com.kumoh.lbs.domain.strategy.ScoringStrategy
 import org.slf4j.LoggerFactory
@@ -16,22 +17,21 @@ class GasStationFinder(
     private val log = LoggerFactory.getLogger(javaClass)
 
     fun findBest(
-        katecX: Double,
-        katecY: Double,
+        location: Coordinate,
         radius: Int,
         fuelType: String,
         limit: Int
     ): List<ScoredGasStation> {
         require(limit in 1..5)
-        val stations = opinetClient.searchByRadius(katecX, katecY, radius, fuelType, SortType.PRICE)
-        log.info("Opinet API 응답: {} 건, katecX={}, katecY={}, radius={}", stations.size, katecX, katecY, radius)
+        val stations = opinetClient.searchByRadius(location.katec.x, location.katec.y, radius, fuelType, SortType.PRICE)
+        log.info("Opinet API 응답: {} 건, radius={}", stations.size, radius)
 
         return stations
             .map {
                 ScoredGasStation(
                     it,
                     scoringStrategy.score(it),
-                    frontRoadSpeedFinder.findSpeed(it.katecX, it.katecY)
+                    frontRoadSpeedFinder.findSpeed(it.coordinate)
                 )
             }
             .sortedBy { it.score }

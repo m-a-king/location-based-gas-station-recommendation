@@ -1,15 +1,14 @@
 package com.kumoh.lbs.service
 
 import com.kumoh.lbs.client.ItsClient
-import com.kumoh.lbs.util.CoordinateConverter
+import com.kumoh.lbs.domain.Coordinate
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
 @Service
 class FrontRoadSpeedFinder(
     private val itsClient: ItsClient,
-    private val nearestLinkFinder: NearestLinkFinder,
-    private val coordinateConverter: CoordinateConverter
+    private val nearestLinkFinder: NearestLinkFinder
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -18,18 +17,17 @@ class FrontRoadSpeedFinder(
         private const val METERS_PER_DEGREE = 111_000.0
     }
 
-    fun findSpeed(stationKatecX: Double, stationKatecY: Double): Double {
-        val stationWgs84 = coordinateConverter.katecToWgs84(stationKatecX, stationKatecY)
+    fun findSpeed(stationLocation: Coordinate): Double {
         val searchRadiusDegrees = SEARCH_RADIUS_METERS / METERS_PER_DEGREE
 
-        val links = itsClient.getTrafficInfo(
-            minX = stationWgs84.longitude - searchRadiusDegrees,
-            maxX = stationWgs84.longitude + searchRadiusDegrees,
-            minY = stationWgs84.latitude - searchRadiusDegrees,
-            maxY = stationWgs84.latitude + searchRadiusDegrees
+        val links = itsClient.searchTrafficLinks(
+            minX = stationLocation.wgs84.longitude - searchRadiusDegrees,
+            maxX = stationLocation.wgs84.longitude + searchRadiusDegrees,
+            minY = stationLocation.wgs84.latitude - searchRadiusDegrees,
+            maxY = stationLocation.wgs84.latitude + searchRadiusDegrees
         )
 
-        val matchResult = nearestLinkFinder.findNearestLinkId(stationKatecX, stationKatecY)
+        val matchResult = nearestLinkFinder.findNearestLinkId(stationLocation)
 
         when (matchResult) {
             is NearestLinkFinder.LinkMatchResult.Found -> {

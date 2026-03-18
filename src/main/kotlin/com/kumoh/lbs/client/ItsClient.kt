@@ -26,7 +26,7 @@ class ItsClient(
      * @param maxY 최대 위도 (WGS84)
      * @return 도로 구간별 통행 속도 목록
      */
-    fun getTrafficInfo(
+    fun searchTrafficLinks(
         minX: Double,
         maxX: Double,
         minY: Double,
