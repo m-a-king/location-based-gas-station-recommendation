@@ -18,12 +18,17 @@ class OpinetClient(
         private const val RESPONSE_TYPE = "json"
     }
 
+    enum class SortType(val code: Int) {
+        PRICE(1),
+        DISTANCE(2)
+    }
+
     fun searchByRadius(
         katecX: Double,
         katecY: Double,
         radius: Int,
         fuelType: String,
-        sort: Int
+        sort: SortType
     ): List<GasStation> {
         val response = opinetRestClient.get()
             .uri {
@@ -33,7 +38,7 @@ class OpinetClient(
                     .queryParam("y", katecY)
                     .queryParam("radius", radius)
                     .queryParam("prodcd", fuelType)
-                    .queryParam("sort", sort)
+                    .queryParam("sort", sort.code)
                     .queryParam("out", RESPONSE_TYPE)
                     .build()
             }
