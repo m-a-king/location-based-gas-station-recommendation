@@ -6,26 +6,6 @@ import org.junit.jupiter.api.Test
 class DirectionCalculationTest {
 
     @Test
-    fun `평행 벡터 코사인 유사도는 1이다`() {
-        cosineSimilarity(1.0, 0.0, 2.0, 0.0) shouldBe 1.0
-    }
-
-    @Test
-    fun `반대 벡터 코사인 유사도는 -1이다`() {
-        cosineSimilarity(1.0, 0.0, -1.0, 0.0) shouldBe -1.0
-    }
-
-    @Test
-    fun `수직 벡터 코사인 유사도는 0이다`() {
-        cosineSimilarity(1.0, 0.0, 0.0, 1.0) shouldBe 0.0
-    }
-
-    @Test
-    fun `영벡터가 포함되면 코사인 유사도는 0이다`() {
-        cosineSimilarity(0.0, 0.0, 1.0, 1.0) shouldBe 0.0
-    }
-
-    @Test
     fun `점이 선분 위에 있으면 거리는 0이다`() {
         pointToSegmentDistance(0.5, 0.0, 0.0, 0.0, 1.0, 0.0) shouldBe 0.0
     }

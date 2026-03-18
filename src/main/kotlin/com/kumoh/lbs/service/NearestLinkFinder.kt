@@ -25,12 +25,9 @@ class NearestLinkFinder(
 
     fun findNearestLinkId(
         stationKatecX: Double,
-        stationKatecY: Double,
-        userKatecX: Double,
-        userKatecY: Double
+        stationKatecY: Double
     ): LinkMatchResult {
         val stationWgs = coordinateConverter.katecToWgs84(stationKatecX, stationKatecY)
-        val userWgs = coordinateConverter.katecToWgs84(userKatecX, userKatecY)
 
         val searchRadiusDegrees = SEARCH_RADIUS_METERS / METERS_PER_DEGREE
         val candidates = moctLinkRepository.findLinksInBoundingBox(
@@ -45,48 +42,17 @@ class NearestLinkFinder(
             return LinkMatchResult.NotFound
         }
 
-        val approachDirectionX = stationWgs.longitude - userWgs.longitude
-        val approachDirectionY = stationWgs.latitude - userWgs.latitude
-
-        val scored = candidates.map { link ->
-            val distanceToLink = pointToSegmentDistance(
+        val best = candidates.minBy { link ->
+            pointToSegmentDistance(
                 stationWgs.longitude, stationWgs.latitude,
                 link.fLongitude, link.fLatitude,
                 link.tLongitude, link.tLatitude
             )
-            val linkDirectionX = link.tLongitude - link.fLongitude
-            val linkDirectionY = link.tLatitude - link.fLatitude
-            val directionSimilarity = cosineSimilarity(
-                approachDirectionX, approachDirectionY,
-                linkDirectionX, linkDirectionY
-            )
-            ScoredLink(link.linkId, distanceToLink, directionSimilarity)
         }
 
-        val sameDirectionLinks = scored.filter { it.directionSimilarity > 0 }
-        val best = if (sameDirectionLinks.isNotEmpty()) {
-            sameDirectionLinks.minBy { it.distanceToStation }
-        } else {
-            scored.minBy { it.distanceToStation }
-        }
-
-        log.debug(
-            "주유소 진입 도로 매칭: linkId={}, distance={:.6f}, directionSimilarity={:.3f}",
-            best.linkId, best.distanceToStation, best.directionSimilarity
-        )
+        log.debug("주유소 앞 도로 매칭: linkId={}", best.linkId)
         return LinkMatchResult.Found(best.linkId)
     }
-
-    private data class ScoredLink(val linkId: String, val distanceToStation: Double, val directionSimilarity: Double)
-}
-
-/** 두 2D 벡터의 코사인 유사도를 계산합니다. */
-fun cosineSimilarity(ax: Double, ay: Double, bx: Double, by: Double): Double {
-    val dot = ax * bx + ay * by
-    val magA = sqrt(ax * ax + ay * ay)
-    val magB = sqrt(bx * bx + by * by)
-    if (magA == 0.0 || magB == 0.0) return 0.0
-    return dot / (magA * magB)
 }
 
 /** 점 (px, py)에서 선분 (segStartX,segStartY)-(segEndX,segEndY)까지의 최소 거리를 계산합니다. */
