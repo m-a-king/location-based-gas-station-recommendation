@@ -14,7 +14,7 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
 
 @ExtendWith(MockitoExtension::class)
-class FrontRoadSpeedFinderTest {
+class TrafficSpeedFinderTest {
 
     @Mock
     lateinit var itsClient: ItsClient
@@ -23,7 +23,7 @@ class FrontRoadSpeedFinderTest {
     lateinit var nearestLinkFinder: NearestLinkFinder
 
     @InjectMocks
-    lateinit var frontRoadSpeedFinder: FrontRoadSpeedFinder
+    lateinit var trafficSpeedFinder: TrafficSpeedFinder
 
     private fun stationCoordinate() = Coordinate.fromWgs84(Coordinate.Wgs84(37.0, 127.0))
 
@@ -40,7 +40,7 @@ class FrontRoadSpeedFinderTest {
                 )
             )
 
-        val speed = frontRoadSpeedFinder.findSpeed(location)
+        val speed = trafficSpeedFinder.findAt(location)
 
         speed shouldBe 50.0
     }
@@ -58,7 +58,7 @@ class FrontRoadSpeedFinderTest {
                 )
             )
 
-        val speed = frontRoadSpeedFinder.findSpeed(location)
+        val speed = trafficSpeedFinder.findAt(location)
 
         speed shouldBe 20.0
     }
@@ -76,7 +76,7 @@ class FrontRoadSpeedFinderTest {
                 )
             )
 
-        val speed = frontRoadSpeedFinder.findSpeed(location)
+        val speed = trafficSpeedFinder.findAt(location)
 
         speed shouldBe 15.0
     }
@@ -89,7 +89,7 @@ class FrontRoadSpeedFinderTest {
         whenever(itsClient.searchTrafficLinks(any(), any(), any(), any()))
             .thenReturn(emptyList())
 
-        val speed = frontRoadSpeedFinder.findSpeed(location)
+        val speed = trafficSpeedFinder.findAt(location)
 
         speed shouldBe 0.0
     }

@@ -1,20 +1,21 @@
 package com.kumoh.lbs.service
 
+import com.kumoh.lbs.domain.BoundingBox
 import com.kumoh.lbs.domain.Coordinate
 import com.kumoh.lbs.repository.MoctLinkRepository
-import org.slf4j.LoggerFactory
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
 import kotlin.math.sqrt
+
+private val logger = KotlinLogging.logger {}
 
 @Service
 class NearestLinkFinder(
     private val moctLinkRepository: MoctLinkRepository
 ) {
-    private val log = LoggerFactory.getLogger(javaClass)
 
     companion object {
         private const val SEARCH_RADIUS_METERS = 200
-        private const val METERS_PER_DEGREE = 111_000.0
     }
 
     sealed interface LinkMatchResult {
@@ -23,16 +24,16 @@ class NearestLinkFinder(
     }
 
     fun findNearestLinkId(stationLocation: Coordinate): LinkMatchResult {
-        val searchRadiusDegrees = SEARCH_RADIUS_METERS / METERS_PER_DEGREE
+        val box = BoundingBox.around(stationLocation, SEARCH_RADIUS_METERS)
         val candidates = moctLinkRepository.findLinksInBoundingBox(
-            minLon = stationLocation.wgs84.longitude - searchRadiusDegrees,
-            maxLon = stationLocation.wgs84.longitude + searchRadiusDegrees,
-            minLat = stationLocation.wgs84.latitude - searchRadiusDegrees,
-            maxLat = stationLocation.wgs84.latitude + searchRadiusDegrees
+            minLon = box.minLon,
+            maxLon = box.maxLon,
+            minLat = box.minLat,
+            maxLat = box.maxLat
         )
 
         if (candidates.isEmpty()) {
-            log.debug("주유소 주변 링크 없음: katec=({}, {})", stationLocation.katec.x, stationLocation.katec.y)
+            logger.debug { "주유소 주변 링크 없음: katec=(${stationLocation.katec.x}, ${stationLocation.katec.y})" }
             return LinkMatchResult.NotFound
         }
 
@@ -44,7 +45,7 @@ class NearestLinkFinder(
             )
         }
 
-        log.debug("주유소 앞 도로 매칭: linkId={}", best.linkId)
+        logger.debug { "주유소 앞 도로 매칭: linkId=${best.linkId}" }
         return LinkMatchResult.Found(best.linkId)
     }
 }

@@ -2,7 +2,6 @@ package com.kumoh.lbs.service
 
 import com.kumoh.lbs.domain.Coordinate
 import com.kumoh.lbs.domain.GasStation
-import com.kumoh.lbs.domain.strategy.PriceDistanceStrategy
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
@@ -10,7 +9,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.InjectMocks
 import org.mockito.Mock
-import org.mockito.Spy
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
@@ -22,21 +20,18 @@ class GasStationRecommenderTest {
     lateinit var gasStationFinder: GasStationFinder
 
     @Mock
-    lateinit var frontRoadSpeedFinder: FrontRoadSpeedFinder
-
-    @Spy
-    var scoringStrategy: PriceDistanceStrategy = PriceDistanceStrategy()
+    lateinit var trafficSpeedFinder: TrafficSpeedFinder
 
     @InjectMocks
     lateinit var gasStationRecommender: GasStationRecommender
 
-    private fun stubFrontRoadSpeed(speed: Double = 0.0) {
-        whenever(frontRoadSpeedFinder.findSpeed(any())).thenReturn(speed)
+    private fun stubTrafficSpeed(speed: Double = 0.0) {
+        whenever(trafficSpeedFinder.findAt(any())).thenReturn(speed)
     }
 
     @Test
     fun `가격이 가장 싼 주유소가 1위로 반환된다`() {
-        stubFrontRoadSpeed()
+        stubTrafficSpeed()
         val stations = listOf(
             gasStation(id = "1", name = "비싼주유소", price = 1800, distance = 100.0),
             gasStation(id = "2", name = "싼주유소", price = 1500, distance = 100.0),
@@ -52,7 +47,7 @@ class GasStationRecommenderTest {
 
     @Test
     fun `거리가 가까울수록 더 좋은 점수를 받는다`() {
-        stubFrontRoadSpeed()
+        stubTrafficSpeed()
         val stations = listOf(
             gasStation(id = "1", name = "먼주유소", price = 1600, distance = 3000.0),
             gasStation(id = "2", name = "가까운주유소", price = 1600, distance = 500.0)
@@ -66,7 +61,7 @@ class GasStationRecommenderTest {
 
     @Test
     fun `limit만큼만 결과를 반환한다`() {
-        stubFrontRoadSpeed()
+        stubTrafficSpeed()
         val stations = (1..10).map {
             gasStation(id = "$it", name = "주유소$it", price = 1500 + it * 10, distance = 100.0)
         }
