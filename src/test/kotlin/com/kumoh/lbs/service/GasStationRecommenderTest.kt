@@ -1,6 +1,5 @@
 package com.kumoh.lbs.service
 
-import com.kumoh.lbs.client.OpinetClient
 import com.kumoh.lbs.domain.Coordinate
 import com.kumoh.lbs.domain.GasStation
 import com.kumoh.lbs.domain.strategy.PriceDistanceStrategy
@@ -17,10 +16,10 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
 
 @ExtendWith(MockitoExtension::class)
-class GasStationFinderTest {
+class GasStationRecommenderTest {
 
     @Mock
-    lateinit var opinetClient: OpinetClient
+    lateinit var gasStationFinder: GasStationFinder
 
     @Mock
     lateinit var frontRoadSpeedFinder: FrontRoadSpeedFinder
@@ -29,7 +28,7 @@ class GasStationFinderTest {
     var scoringStrategy: PriceDistanceStrategy = PriceDistanceStrategy()
 
     @InjectMocks
-    lateinit var gasStationFinder: GasStationFinder
+    lateinit var gasStationRecommender: GasStationRecommender
 
     private fun stubFrontRoadSpeed(speed: Double = 0.0) {
         whenever(frontRoadSpeedFinder.findSpeed(any())).thenReturn(speed)
@@ -43,9 +42,9 @@ class GasStationFinderTest {
             gasStation(id = "2", name = "싼주유소", price = 1500, distance = 100.0),
             gasStation(id = "3", name = "중간주유소", price = 1650, distance = 100.0)
         )
-        whenever(opinetClient.searchByRadius(any(), any(), any(), any(), any())).thenReturn(stations)
+        whenever(gasStationFinder.findNearby(any(), any(), any())).thenReturn(stations)
 
-        val result = gasStationFinder.findBest(Coordinate.fromKatec(Coordinate.Katec(100.0, 200.0)), radius = 5000, fuelType = "B027", limit = 5)
+        val result = gasStationRecommender.recommend(Coordinate.fromKatec(Coordinate.Katec(100.0, 200.0)), radius = 5000, fuelType = "B027", limit = 5)
 
         result.first().station.name shouldBe "싼주유소"
         result.last().station.name shouldBe "비싼주유소"
@@ -58,9 +57,9 @@ class GasStationFinderTest {
             gasStation(id = "1", name = "먼주유소", price = 1600, distance = 3000.0),
             gasStation(id = "2", name = "가까운주유소", price = 1600, distance = 500.0)
         )
-        whenever(opinetClient.searchByRadius(any(), any(), any(), any(), any())).thenReturn(stations)
+        whenever(gasStationFinder.findNearby(any(), any(), any())).thenReturn(stations)
 
-        val result = gasStationFinder.findBest(Coordinate.fromKatec(Coordinate.Katec(100.0, 200.0)), radius = 5000, fuelType = "B027", limit = 5)
+        val result = gasStationRecommender.recommend(Coordinate.fromKatec(Coordinate.Katec(100.0, 200.0)), radius = 5000, fuelType = "B027", limit = 5)
 
         result.first().station.name shouldBe "가까운주유소"
     }
@@ -71,18 +70,18 @@ class GasStationFinderTest {
         val stations = (1..10).map {
             gasStation(id = "$it", name = "주유소$it", price = 1500 + it * 10, distance = 100.0)
         }
-        whenever(opinetClient.searchByRadius(any(), any(), any(), any(), any())).thenReturn(stations)
+        whenever(gasStationFinder.findNearby(any(), any(), any())).thenReturn(stations)
 
-        val result = gasStationFinder.findBest(Coordinate.fromKatec(Coordinate.Katec(100.0, 200.0)), radius = 5000, fuelType = "B027", limit = 3)
+        val result = gasStationRecommender.recommend(Coordinate.fromKatec(Coordinate.Katec(100.0, 200.0)), radius = 5000, fuelType = "B027", limit = 3)
 
         result shouldHaveSize 3
     }
 
     @Test
     fun `검색 결과가 없으면 빈 리스트를 반환한다`() {
-        whenever(opinetClient.searchByRadius(any(), any(), any(), any(), any())).thenReturn(emptyList())
+        whenever(gasStationFinder.findNearby(any(), any(), any())).thenReturn(emptyList())
 
-        val result = gasStationFinder.findBest(Coordinate.fromKatec(Coordinate.Katec(100.0, 200.0)), radius = 5000, fuelType = "B027", limit = 5)
+        val result = gasStationRecommender.recommend(Coordinate.fromKatec(Coordinate.Katec(100.0, 200.0)), radius = 5000, fuelType = "B027", limit = 5)
 
         result.shouldBeEmpty()
     }
@@ -96,7 +95,7 @@ class GasStationFinderTest {
         id = id,
         name = name,
         brand = "SKE",
-        coordinate = Coordinate.fromKatec(Coordinate.Katec(100.0, 200.0)),
+        location = Coordinate.fromKatec(Coordinate.Katec(100.0, 200.0)),
         price = price,
         distance = distance
     )

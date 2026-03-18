@@ -2,24 +2,28 @@ package com.kumoh.lbs.controller
 
 import com.kumoh.lbs.domain.Coordinate
 import com.kumoh.lbs.domain.ScoredGasStation
-import com.kumoh.lbs.service.GasStationFinder
+import com.kumoh.lbs.service.GasStationRecommender
+import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Min
+import org.springframework.validation.annotation.Validated
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
+@Validated
 @RestController
 @RequestMapping("/api/gas-stations")
 class GasStationController(
-    private val gasStationFinder: GasStationFinder
+    private val gasStationRecommender: GasStationRecommender
 ) {
 
     @GetMapping("/best")
     fun findBest(
-        coordinate: Coordinate,
+        userLocation: Coordinate,
         @RequestParam radius: Int,
         @RequestParam fuelType: String,
-        @RequestParam limit: Int
+        @RequestParam @Min(1) @Max(5) limit: Int
     ): List<ScoredGasStation> =
-        gasStationFinder.findBest(coordinate, radius, fuelType, limit)
+        gasStationRecommender.recommend(userLocation, radius, fuelType, limit)
 }

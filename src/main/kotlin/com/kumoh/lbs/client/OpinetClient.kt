@@ -25,8 +25,7 @@ class OpinetClient(
     }
 
     fun searchByRadius(
-        katecX: Double,
-        katecY: Double,
+        center: Coordinate,
         radius: Int,
         fuelType: String,
         sort: SortType
@@ -35,8 +34,8 @@ class OpinetClient(
             .uri {
                 it.path("/aroundAll.do")
                     .queryParam("code", properties.apiKey)
-                    .queryParam("x", katecX)
-                    .queryParam("y", katecY)
+                    .queryParam("x", center.katec.x)
+                    .queryParam("y", center.katec.y)
                     .queryParam("radius", radius)
                     .queryParam("prodcd", fuelType)
                     .queryParam("sort", sort.code)
@@ -72,7 +71,7 @@ data class OpinetStation(
         id = stationId,
         name = stationName,
         brand = brandCode,
-        coordinate = Coordinate.fromKatec(Coordinate.Katec(katecX, katecY)),
+        location = Coordinate.fromKatec(Coordinate.Katec(katecX, katecY)),
         price = price,
         distance = distance
     )
