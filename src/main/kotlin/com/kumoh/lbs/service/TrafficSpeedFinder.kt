@@ -22,10 +22,10 @@ class TrafficSpeedFinder(
         val box = BoundingBox.around(location, SEARCH_RADIUS_METERS)
 
         val links = itsClient.searchTrafficLinks(
-            minX = box.minLon,
-            maxX = box.maxLon,
-            minY = box.minLat,
-            maxY = box.maxLat
+            minX = box.southWest.wgs84.longitude,
+            maxX = box.northEast.wgs84.longitude,
+            minY = box.southWest.wgs84.latitude,
+            maxY = box.northEast.wgs84.latitude
         )
 
         val matchResult = nearestLinkFinder.findNearestLinkId(location)
