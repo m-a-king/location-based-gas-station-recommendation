@@ -4,5 +4,5 @@ import com.kumoh.lbs.domain.GasStation
 
 interface ScoringStrategy {
 
-    fun score(station: GasStation, trafficSpeed: Double? = null): Double
+    fun score(station: GasStation): Double
 }
