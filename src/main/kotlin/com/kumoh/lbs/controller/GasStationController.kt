@@ -1,5 +1,6 @@
 package com.kumoh.lbs.controller
 
+import com.kumoh.lbs.domain.Coordinate
 import com.kumoh.lbs.domain.ScoredGasStation
 import com.kumoh.lbs.service.GasStationFinder
 import org.springframework.web.bind.annotation.GetMapping
@@ -15,11 +16,10 @@ class GasStationController(
 
     @GetMapping("/best")
     fun findBest(
-        @RequestParam katecX: Double,
-        @RequestParam katecY: Double,
-        @RequestParam(defaultValue = "3000") radius: Int,
-        @RequestParam(defaultValue = "B027") fuelType: String,
-        @RequestParam(defaultValue = "5") limit: Int
+        coordinate: Coordinate,
+        @RequestParam radius: Int,
+        @RequestParam fuelType: String,
+        @RequestParam limit: Int
     ): List<ScoredGasStation> =
-        gasStationFinder.findBest(katecX, katecY, radius, fuelType, limit)
+        gasStationFinder.findBest(coordinate, radius, fuelType, limit)
 }
