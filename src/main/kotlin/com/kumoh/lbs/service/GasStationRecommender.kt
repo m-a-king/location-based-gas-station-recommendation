@@ -14,12 +14,14 @@ class GasStationRecommender(
         userLocation: Coordinate,
         radius: Int,
         fuelType: String,
+        fuelAmount: Double,
+        fuelEfficiency: Double,
         limit: Int
     ): List<ScoredGasStation> {
         val stations = gasStationFinder.findNearby(userLocation, radius, fuelType)
 
         return stations
-            .map { ScoredGasStation.of(it, trafficSpeedFinder.findAt(it.location)) }
+            .map { ScoredGasStation.of(it, trafficSpeedFinder.findAt(it.location), fuelAmount, fuelEfficiency) }
             .sortedBy { it.score }
             .take(limit)
     }

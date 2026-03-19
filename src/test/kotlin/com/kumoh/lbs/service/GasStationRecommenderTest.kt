@@ -25,9 +25,21 @@ class GasStationRecommenderTest {
     @InjectMocks
     lateinit var gasStationRecommender: GasStationRecommender
 
+    private val defaultFuelAmount = 40.0
+    private val defaultFuelEfficiency = 10.0
+
     private fun stubTrafficSpeed(speed: Double = 0.0) {
         whenever(trafficSpeedFinder.findAt(any())).thenReturn(speed)
     }
+
+    private fun recommend(stations: List<GasStation>, limit: Int = 5) =
+        gasStationRecommender.recommend(
+            Coordinate.fromKatec(Coordinate.Katec(100.0, 200.0)),
+            radius = 5000, fuelType = "B027",
+            fuelAmount = defaultFuelAmount,
+            fuelEfficiency = defaultFuelEfficiency,
+            limit = limit
+        )
 
     @Test
     fun `가격이 가장 싼 주유소가 1위로 반환된다`() {
@@ -39,7 +51,7 @@ class GasStationRecommenderTest {
         )
         whenever(gasStationFinder.findNearby(any(), any(), any())).thenReturn(stations)
 
-        val result = gasStationRecommender.recommend(Coordinate.fromKatec(Coordinate.Katec(100.0, 200.0)), radius = 5000, fuelType = "B027", limit = 5)
+        val result = recommend(stations)
 
         result.first().station.name shouldBe "싼주유소"
         result.last().station.name shouldBe "비싼주유소"
@@ -54,7 +66,7 @@ class GasStationRecommenderTest {
         )
         whenever(gasStationFinder.findNearby(any(), any(), any())).thenReturn(stations)
 
-        val result = gasStationRecommender.recommend(Coordinate.fromKatec(Coordinate.Katec(100.0, 200.0)), radius = 5000, fuelType = "B027", limit = 5)
+        val result = recommend(stations)
 
         result.first().station.name shouldBe "가까운주유소"
     }
@@ -67,7 +79,7 @@ class GasStationRecommenderTest {
         }
         whenever(gasStationFinder.findNearby(any(), any(), any())).thenReturn(stations)
 
-        val result = gasStationRecommender.recommend(Coordinate.fromKatec(Coordinate.Katec(100.0, 200.0)), radius = 5000, fuelType = "B027", limit = 3)
+        val result = recommend(stations, limit = 3)
 
         result shouldHaveSize 3
     }
@@ -76,7 +88,7 @@ class GasStationRecommenderTest {
     fun `검색 결과가 없으면 빈 리스트를 반환한다`() {
         whenever(gasStationFinder.findNearby(any(), any(), any())).thenReturn(emptyList())
 
-        val result = gasStationRecommender.recommend(Coordinate.fromKatec(Coordinate.Katec(100.0, 200.0)), radius = 5000, fuelType = "B027", limit = 5)
+        val result = recommend(emptyList())
 
         result.shouldBeEmpty()
     }

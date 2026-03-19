@@ -6,10 +6,22 @@ class ScoredGasStation private constructor(
     val trafficSpeed: Double
 ) {
     companion object {
-        private const val DISTANCE_WEIGHT = 0.5
+        private const val METERS_PER_KM = 1000.0
 
-        fun of(station: GasStation, trafficSpeed: Double): ScoredGasStation {
-            val score = station.price.toDouble() + station.distance * DISTANCE_WEIGHT
+        /**
+         * 점수 = 총 주유비 + 이동 연료비 (낮을수록 좋음)
+         *
+         * - 총 주유비: 리터당 가격 × 주유량
+         * - 이동 연료비: (거리m / 1000 / 연비km/L) × 리터당 가격
+         *
+         * @param fuelAmount 주유량 (L)
+         * @param fuelEfficiency 차량 연비 (km/L)
+         */
+        fun of(station: GasStation, trafficSpeed: Double, fuelAmount: Double, fuelEfficiency: Double): ScoredGasStation {
+            val totalFuelCost = station.price * fuelAmount
+            val distanceKm = station.distance / METERS_PER_KM
+            val tripFuelCost = (distanceKm / fuelEfficiency) * station.price
+            val score = totalFuelCost + tripFuelCost
             return ScoredGasStation(station, score, trafficSpeed)
         }
     }

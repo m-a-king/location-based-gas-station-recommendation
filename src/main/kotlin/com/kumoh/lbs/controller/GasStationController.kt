@@ -4,6 +4,7 @@ import com.kumoh.lbs.domain.Coordinate
 import com.kumoh.lbs.service.GasStationRecommender
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
+import jakarta.validation.constraints.Positive
 import org.springframework.validation.annotation.Validated
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
@@ -22,8 +23,10 @@ class GasStationController(
         userLocation: Coordinate,
         @RequestParam radius: Int,
         @RequestParam fuelType: String,
+        @RequestParam @Positive fuelAmount: Double,
+        @RequestParam @Positive fuelEfficiency: Double,
         @RequestParam @Min(1) @Max(5) limit: Int
     ): List<GasStationResponse> =
-        gasStationRecommender.recommend(userLocation, radius, fuelType, limit)
+        gasStationRecommender.recommend(userLocation, radius, fuelType, fuelAmount, fuelEfficiency, limit)
             .map { GasStationResponse.from(it) }
 }
