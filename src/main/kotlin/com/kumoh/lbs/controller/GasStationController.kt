@@ -1,7 +1,6 @@
 package com.kumoh.lbs.controller
 
 import com.kumoh.lbs.domain.Coordinate
-import com.kumoh.lbs.domain.ScoredGasStation
 import com.kumoh.lbs.service.GasStationRecommender
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
@@ -24,6 +23,7 @@ class GasStationController(
         @RequestParam radius: Int,
         @RequestParam fuelType: String,
         @RequestParam @Min(1) @Max(5) limit: Int
-    ): List<ScoredGasStation> =
+    ): List<GasStationResponse> =
         gasStationRecommender.recommend(userLocation, radius, fuelType, limit)
+            .map { GasStationResponse.from(it) }
 }
