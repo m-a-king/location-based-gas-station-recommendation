@@ -19,6 +19,10 @@ VALUES ('1050012345', 'N003', 'N004', '경부고속도로', '101', '1050', 4, 10
 INSERT INTO moct_link (link_id, f_node, t_node, road_name, road_rank, road_no, lanes, max_spd, length, f_longitude, f_latitude, t_longitude, t_latitude)
 VALUES ('3280033650', 'N005', 'N006', '구미로', '106', '3281', 2, 40, 250.0, 128.0010, 37.9980, 128.0010, 38.0005);
 
+-- 관통 도로: 양쪽 endpoint 모두 bbox 밖이지만 선분이 bbox를 관통
+INSERT INTO moct_link (link_id, f_node, t_node, road_name, road_rank, road_no, lanes, max_spd, length, f_longitude, f_latitude, t_longitude, t_latitude)
+VALUES ('CROSSING001', 'NC01', 'NC02', '관통도로', '103', '9998', 2, 60, 1000.0, 127.9900, 38.0003, 128.0100, 38.0003);
+
 -- bounding box 밖의 도로 (매칭되면 안 됨)
 INSERT INTO moct_link (link_id, f_node, t_node, road_name, road_rank, road_no, lanes, max_spd, length, f_longitude, f_latitude, t_longitude, t_latitude)
 VALUES ('9999999999', 'N099', 'N100', '먼도로', '103', '9999', 2, 60, 500.0, 128.0100, 38.0100, 128.0110, 38.0110);

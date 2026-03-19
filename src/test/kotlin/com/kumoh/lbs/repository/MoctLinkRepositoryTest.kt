@@ -1,6 +1,7 @@
 package com.kumoh.lbs.repository
 
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
@@ -34,10 +35,10 @@ class MoctLinkRepositoryTest {
             maxLat = stationLat + radiusDeg
         )
 
-        // fixture에서 bbox 안에 노드가 있는 링크: 3280033641, 3280033642, 1050012345, 3280033650
+        // fixture에서 bbox와 교차하는 링크: 3280033641, 3280033642, 1050012345, 3280033650, CROSSING001
         // 9999999999는 bbox 밖이므로 제외
         val linkIds = links.map { it.linkId }.toSet()
-        linkIds shouldBe setOf("3280033641", "3280033642", "1050012345", "3280033650")
+        linkIds shouldBe setOf("3280033641", "3280033642", "1050012345", "3280033650", "CROSSING001")
     }
 
     @Test
@@ -53,10 +54,22 @@ class MoctLinkRepositoryTest {
     }
 
     @Test
-    fun `t_node 좌표만 범위 안에 있는 링크도 조회된다`() {
+    fun `양쪽 endpoint가 bbox 밖이지만 관통하는 링크도 조회된다`() {
+        val links = moctLinkRepository.findLinksInBoundingBox(
+            minLon = stationLon - radiusDeg,
+            maxLon = stationLon + radiusDeg,
+            minLat = stationLat - radiusDeg,
+            maxLat = stationLat + radiusDeg
+        )
+
+        val linkIds = links.map { it.linkId }
+        linkIds shouldContain "CROSSING001"
+    }
+
+    @Test
+    fun `선분이 bbox를 지나는 링크도 조회된다`() {
         // 이면도로 3280033650: f(128.0010, 37.9980) → t(128.0010, 38.0005)
-        // f_latitude=37.9980은 bbox 밖, t_latitude=38.0005는 bbox 안
-        // 좁은 bbox로 f_node는 밖이지만 t_node는 안에 있는 경우 테스트
+        // 좁은 bbox에서 선분의 AABB가 겹치면 조회됨
         val links = moctLinkRepository.findLinksInBoundingBox(
             minLon = 128.0008,
             maxLon = 128.0012,
@@ -65,7 +78,6 @@ class MoctLinkRepositoryTest {
         )
 
         val linkIds = links.map { it.linkId }
-        linkIds shouldHaveSize 1
-        linkIds[0] shouldBe "3280033650"
+        linkIds shouldContain "3280033650"
     }
 }

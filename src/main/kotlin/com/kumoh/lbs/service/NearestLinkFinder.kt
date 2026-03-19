@@ -16,6 +16,7 @@ class NearestLinkFinder(
 
     companion object {
         private const val SEARCH_RADIUS_METERS = 200
+        private const val METERS_PER_LATITUDE_DEGREE = 111_320.0
     }
 
     sealed interface LinkMatchResult {
@@ -38,6 +39,17 @@ class NearestLinkFinder(
                 link.fLongitude, link.fLatitude,
                 link.tLongitude, link.tLatitude
             )
+        }
+
+        val distanceDegrees = pointToSegmentDistance(
+            stationLocation.wgs84.longitude, stationLocation.wgs84.latitude,
+            best.fLongitude, best.fLatitude,
+            best.tLongitude, best.tLatitude
+        )
+        val approxDistanceMeters = distanceDegrees * METERS_PER_LATITUDE_DEGREE
+        if (approxDistanceMeters > SEARCH_RADIUS_METERS) {
+            logger.debug { "최근접 링크 거리 ${approxDistanceMeters}m > ${SEARCH_RADIUS_METERS}m, 범위 초과" }
+            return LinkMatchResult.NotFound
         }
 
         logger.debug { "주유소 앞 도로 매칭: linkId=${best.linkId}" }

@@ -18,8 +18,10 @@ interface MoctLinkRepository : JpaRepository<MoctLink, String> {
     @Query(
         value = """
             SELECT * FROM moct_link
-            WHERE (f_longitude BETWEEN :minLon AND :maxLon AND f_latitude BETWEEN :minLat AND :maxLat)
-               OR (t_longitude BETWEEN :minLon AND :maxLon AND t_latitude BETWEEN :minLat AND :maxLat)
+            WHERE LEAST(f_longitude, t_longitude) <= :maxLon
+              AND GREATEST(f_longitude, t_longitude) >= :minLon
+              AND LEAST(f_latitude, t_latitude) <= :maxLat
+              AND GREATEST(f_latitude, t_latitude) >= :minLat
         """,
         nativeQuery = true
     )

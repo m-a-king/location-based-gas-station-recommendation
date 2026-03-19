@@ -83,4 +83,17 @@ class NearestLinkFinderTest {
 
         result shouldBe LinkMatchResult.Found("NEAR")
     }
+
+    @Test
+    fun `200m 밖의 링크만 있으면 NotFound를 반환한다`() {
+        val location = stationAt(lat = 37.0, lon = 127.0)
+        // 0.005도 ≈ 556m, 200m 초과
+        val farLink = moctLink("FAR001", 127.0, 37.005, 127.001, 37.005)
+        whenever(moctLinkRepository.findLinksIn(any()))
+            .thenReturn(listOf(farLink))
+
+        val result = nearestLinkFinder.findNearestLinkId(location)
+
+        result.shouldBeInstanceOf<LinkMatchResult.NotFound>()
+    }
 }
