@@ -25,12 +25,7 @@ class NearestLinkFinder(
 
     fun findNearestLinkId(stationLocation: Coordinate): LinkMatchResult {
         val box = BoundingBox.around(stationLocation, SEARCH_RADIUS_METERS)
-        val candidates = moctLinkRepository.findLinksInBoundingBox(
-            minLon = box.southWest.wgs84.longitude,
-            maxLon = box.northEast.wgs84.longitude,
-            minLat = box.southWest.wgs84.latitude,
-            maxLat = box.northEast.wgs84.latitude
-        )
+        val candidates = moctLinkRepository.findLinksIn(box)
 
         if (candidates.isEmpty()) {
             logger.debug { "주유소 주변 링크 없음: katec=(${stationLocation.katec.x}, ${stationLocation.katec.y})" }

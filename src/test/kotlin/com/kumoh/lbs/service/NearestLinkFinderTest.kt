@@ -49,7 +49,7 @@ class NearestLinkFinderTest {
     @Test
     fun `링크가 없으면 NotFound를 반환한다`() {
         val location = stationAt()
-        whenever(moctLinkRepository.findLinksInBoundingBox(any(), any(), any(), any()))
+        whenever(moctLinkRepository.findLinksIn(any()))
             .thenReturn(emptyList())
 
         val result = nearestLinkFinder.findNearestLinkId(location)
@@ -61,7 +61,7 @@ class NearestLinkFinderTest {
     fun `후보가 1개면 해당 linkId를 반환한다`() {
         val location = stationAt()
         val link = moctLink("LINK001", 126.999, 37.0, 127.001, 37.0)
-        whenever(moctLinkRepository.findLinksInBoundingBox(any(), any(), any(), any()))
+        whenever(moctLinkRepository.findLinksIn(any()))
             .thenReturn(listOf(link))
 
         val result = nearestLinkFinder.findNearestLinkId(location)
@@ -76,7 +76,7 @@ class NearestLinkFinderTest {
         val near = moctLink("NEAR", 127.0001, 37.0005, 127.0001, 36.9995)
         val far = moctLink("FAR", 127.005, 37.005, 127.005, 36.995)
 
-        whenever(moctLinkRepository.findLinksInBoundingBox(any(), any(), any(), any()))
+        whenever(moctLinkRepository.findLinksIn(any()))
             .thenReturn(listOf(far, near))
 
         val result = nearestLinkFinder.findNearestLinkId(location)
