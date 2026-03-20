@@ -1,6 +1,7 @@
 package com.kumoh.lbs.controller
 
 import com.kumoh.lbs.domain.Coordinate
+import com.kumoh.lbs.domain.FuelType
 import com.kumoh.lbs.service.GasStationRecommender
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
@@ -22,7 +23,7 @@ class GasStationController(
     fun findBest(
         userLocation: Coordinate,
         @RequestParam radius: Int,
-        @RequestParam fuelType: String,
+        @RequestParam fuelType: FuelType,
         @RequestParam @Positive fuelAmount: Double,
         @RequestParam @Positive fuelEfficiency: Double,
         @RequestParam @Min(1) @Max(5) limit: Int

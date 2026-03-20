@@ -1,6 +1,7 @@
 package com.kumoh.lbs.service
 
 import com.kumoh.lbs.domain.Coordinate
+import com.kumoh.lbs.domain.FuelType
 import com.kumoh.lbs.domain.GasStation
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
@@ -35,7 +36,7 @@ class GasStationRecommenderTest {
     private fun recommend(stations: List<GasStation>, limit: Int = 5) =
         gasStationRecommender.recommend(
             Coordinate.fromKatec(Coordinate.Katec(100.0, 200.0)),
-            radius = 5000, fuelType = "B027",
+            radius = 5000, fuelType = FuelType.GASOLINE,
             fuelAmount = defaultFuelAmount,
             fuelEfficiency = defaultFuelEfficiency,
             limit = limit

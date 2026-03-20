@@ -3,6 +3,7 @@ package com.kumoh.lbs.client
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.kumoh.lbs.config.OpinetProperties
 import com.kumoh.lbs.domain.Coordinate
+import com.kumoh.lbs.domain.FuelType
 import com.kumoh.lbs.domain.GasStation
 import org.springframework.core.ParameterizedTypeReference
 import org.springframework.stereotype.Component
@@ -27,7 +28,7 @@ class OpinetClient(
     fun searchByRadius(
         center: Coordinate,
         radius: Int,
-        fuelType: String,
+        fuelType: FuelType,
         sort: SortType
     ): List<GasStation> {
         val response = opinetRestClient.get()
@@ -37,7 +38,7 @@ class OpinetClient(
                     .queryParam("x", center.katec.x)
                     .queryParam("y", center.katec.y)
                     .queryParam("radius", radius)
-                    .queryParam("prodcd", fuelType)
+                    .queryParam("prodcd", fuelType.code)
                     .queryParam("sort", sort.code)
                     .queryParam("out", RESPONSE_TYPE)
                     .build()

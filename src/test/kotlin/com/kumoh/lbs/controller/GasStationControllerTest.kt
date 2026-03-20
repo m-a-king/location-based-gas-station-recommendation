@@ -24,7 +24,9 @@ class GasStationControllerTest {
     fun `좌표 없이 요청하면 400을 반환한다`() {
         mockMvc.get("/api/gas-stations/best") {
             param("radius", "5000")
-            param("fuelType", "B027")
+            param("fuelType", "GASOLINE")
+            param("fuelAmount", "40.0")
+            param("fuelEfficiency", "10.0")
             param("limit", "3")
         }.andExpect {
             status { isBadRequest() }
@@ -39,7 +41,9 @@ class GasStationControllerTest {
             param("latitude", "37.0")
             param("longitude", "127.0")
             param("radius", "5000")
-            param("fuelType", "B027")
+            param("fuelType", "GASOLINE")
+            param("fuelAmount", "40.0")
+            param("fuelEfficiency", "10.0")
             param("limit", "10")
         }.andExpect {
             status { isBadRequest() }
@@ -52,11 +56,28 @@ class GasStationControllerTest {
             param("katecX", "100.0")
             param("latitude", "37.0")
             param("radius", "5000")
-            param("fuelType", "B027")
+            param("fuelType", "GASOLINE")
+            param("fuelAmount", "40.0")
+            param("fuelEfficiency", "10.0")
             param("limit", "3")
         }.andExpect {
             status { isBadRequest() }
             jsonPath("$.message") { exists() }
+        }
+    }
+
+    @Test
+    fun `지원하지 않는 유종 코드는 400을 반환한다`() {
+        mockMvc.get("/api/gas-stations/best") {
+            param("latitude", "37.0")
+            param("longitude", "127.0")
+            param("radius", "5000")
+            param("fuelType", "INVALID")
+            param("fuelAmount", "40.0")
+            param("fuelEfficiency", "10.0")
+            param("limit", "3")
+        }.andExpect {
+            status { isBadRequest() }
         }
     }
 }

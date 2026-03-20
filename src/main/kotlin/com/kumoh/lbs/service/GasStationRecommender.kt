@@ -1,6 +1,7 @@
 package com.kumoh.lbs.service
 
 import com.kumoh.lbs.domain.Coordinate
+import com.kumoh.lbs.domain.FuelType
 import com.kumoh.lbs.domain.ScoredGasStation
 import org.springframework.stereotype.Service
 
@@ -13,7 +14,7 @@ class GasStationRecommender(
     fun recommend(
         userLocation: Coordinate,
         radius: Int,
-        fuelType: String,
+        fuelType: FuelType,
         fuelAmount: Double,
         fuelEfficiency: Double,
         limit: Int
