@@ -2,6 +2,7 @@ package com.kumoh.lbs.client
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.kumoh.lbs.config.ItsProperties
+import com.kumoh.lbs.domain.BoundingBox
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.core.ParameterizedTypeReference
 import org.springframework.stereotype.Component
@@ -18,20 +19,7 @@ class ItsClient(
         private val logger = KotlinLogging.logger {}
     }
 
-    /**
-     * 영역 내 실시간 교통소통정보를 조회합니다.
-     * @param minX 최소 경도 (WGS84)
-     * @param maxX 최대 경도 (WGS84)
-     * @param minY 최소 위도 (WGS84)
-     * @param maxY 최대 위도 (WGS84)
-     * @return 도로 구간별 통행 속도 목록
-     */
-    fun searchTrafficLinks(
-        minX: Double,
-        maxX: Double,
-        minY: Double,
-        maxY: Double
-    ): List<TrafficLink> {
+    fun searchTrafficLinks(box: BoundingBox): List<TrafficLink> {
         return try {
             val response = itsRestClient.get()
                 .uri { builder ->
@@ -39,10 +27,10 @@ class ItsClient(
                         .queryParam("apiKey", properties.apiKey)
                         .queryParam("type", "all")
                         .queryParam("drcType", "all")
-                        .queryParam("minX", minX)
-                        .queryParam("maxX", maxX)
-                        .queryParam("minY", minY)
-                        .queryParam("maxY", maxY)
+                        .queryParam("minX", box.southWest.wgs84.longitude)
+                        .queryParam("maxX", box.northEast.wgs84.longitude)
+                        .queryParam("minY", box.southWest.wgs84.latitude)
+                        .queryParam("maxY", box.northEast.wgs84.latitude)
                         .queryParam("getType", "json")
                         .build()
                 }
@@ -50,7 +38,7 @@ class ItsClient(
                 .body(object : ParameterizedTypeReference<ItsTrafficResponse>() {})
 
             val links = response?.body?.items ?: emptyList()
-            logger.info { "ITS API 응답: ${links.size} 건, 영역=[$minX,$minY,$maxX,$maxY]" }
+            logger.info { "ITS API 응답: ${links.size} 건" }
             links
         } catch (e: Exception) {
             logger.warn { "ITS API 호출 실패, 교통 데이터 없이 진행: ${e.message}" }

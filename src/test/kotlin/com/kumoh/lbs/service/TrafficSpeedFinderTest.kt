@@ -32,7 +32,7 @@ class TrafficSpeedFinderTest {
         val location = stationCoordinate()
         whenever(nearestLinkFinder.findNearestLinkId(any()))
             .thenReturn(LinkMatchResult.Found("MATCHED_LINK"))
-        whenever(itsClient.searchTrafficLinks(any(), any(), any(), any()))
+        whenever(itsClient.searchTrafficLinks(any()))
             .thenReturn(
                 listOf(
                     trafficLink("OTHER_LINK", "10.0"),
@@ -50,7 +50,7 @@ class TrafficSpeedFinderTest {
         val location = stationCoordinate()
         whenever(nearestLinkFinder.findNearestLinkId(any()))
             .thenReturn(LinkMatchResult.Found("MISSING_LINK"))
-        whenever(itsClient.searchTrafficLinks(any(), any(), any(), any()))
+        whenever(itsClient.searchTrafficLinks(any()))
             .thenReturn(
                 listOf(
                     trafficLink("LINK_A", "30.0"),
@@ -68,7 +68,7 @@ class TrafficSpeedFinderTest {
         val location = stationCoordinate()
         whenever(nearestLinkFinder.findNearestLinkId(any()))
             .thenReturn(LinkMatchResult.NotFound)
-        whenever(itsClient.searchTrafficLinks(any(), any(), any(), any()))
+        whenever(itsClient.searchTrafficLinks(any()))
             .thenReturn(
                 listOf(
                     trafficLink("LINK_A", "40.0"),
@@ -86,7 +86,7 @@ class TrafficSpeedFinderTest {
         val location = stationCoordinate()
         whenever(nearestLinkFinder.findNearestLinkId(any()))
             .thenReturn(LinkMatchResult.NotFound)
-        whenever(itsClient.searchTrafficLinks(any(), any(), any(), any()))
+        whenever(itsClient.searchTrafficLinks(any()))
             .thenReturn(emptyList())
 
         val speed = trafficSpeedFinder.findAt(location)

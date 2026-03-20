@@ -29,12 +29,11 @@ class ItsClientManualTest {
         val itsClient = ItsClient(itsRestClient, ItsProperties(apiKey))
 
         // 서울 시청 부근 약 200m 영역
-        val links = itsClient.searchTrafficLinks(
-            minX = 126.976,
-            maxX = 126.980,
-            minY = 37.565,
-            maxY = 37.568
+        val center = com.kumoh.lbs.domain.Coordinate.fromWgs84(
+            com.kumoh.lbs.domain.Coordinate.Wgs84(37.5665, 126.978)
         )
+        val box = com.kumoh.lbs.domain.BoundingBox.around(center, 200)
+        val links = itsClient.searchTrafficLinks(box)
 
         println("=== ITS API 응답: ${links.size}건 ===")
         links.forEach { link ->
