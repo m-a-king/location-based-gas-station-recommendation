@@ -33,18 +33,19 @@ class GasStationRecommenderTest {
         whenever(trafficSpeedFinder.findAt(any())).thenReturn(speed)
     }
 
-    private fun recommend(stations: List<GasStation>, limit: Int = 5) =
-        gasStationRecommender.recommend(
+    private fun recommend(stations: List<GasStation>, limit: Int = 5): List<com.kumoh.lbs.domain.ScoredGasStation> {
+        stubTrafficSpeed()
+        return gasStationRecommender.recommend(
             Coordinate.fromKatec(Coordinate.Katec(100.0, 200.0)),
             radius = 5000, fuelType = FuelType.GASOLINE,
             fuelAmount = defaultFuelAmount,
             fuelEfficiency = defaultFuelEfficiency,
             limit = limit
         )
+    }
 
     @Test
     fun `가격이 가장 싼 주유소가 1위로 반환된다`() {
-        stubTrafficSpeed()
         val stations = listOf(
             gasStation(id = "1", name = "비싼주유소", price = 1800, distance = 100.0),
             gasStation(id = "2", name = "싼주유소", price = 1500, distance = 100.0),
@@ -60,7 +61,6 @@ class GasStationRecommenderTest {
 
     @Test
     fun `거리가 가까울수록 더 좋은 점수를 받는다`() {
-        stubTrafficSpeed()
         val stations = listOf(
             gasStation(id = "1", name = "먼주유소", price = 1600, distance = 3000.0),
             gasStation(id = "2", name = "가까운주유소", price = 1600, distance = 500.0)
@@ -74,7 +74,6 @@ class GasStationRecommenderTest {
 
     @Test
     fun `limit만큼만 결과를 반환한다`() {
-        stubTrafficSpeed()
         val stations = (1..10).map {
             gasStation(id = "$it", name = "주유소$it", price = 1500 + it * 10, distance = 100.0)
         }
@@ -89,7 +88,13 @@ class GasStationRecommenderTest {
     fun `검색 결과가 없으면 빈 리스트를 반환한다`() {
         whenever(gasStationFinder.findNearby(any(), any(), any())).thenReturn(emptyList())
 
-        val result = recommend(emptyList())
+        val result = gasStationRecommender.recommend(
+            Coordinate.fromKatec(Coordinate.Katec(100.0, 200.0)),
+            radius = 5000, fuelType = FuelType.GASOLINE,
+            fuelAmount = defaultFuelAmount,
+            fuelEfficiency = defaultFuelEfficiency,
+            limit = 5
+        )
 
         result.shouldBeEmpty()
     }

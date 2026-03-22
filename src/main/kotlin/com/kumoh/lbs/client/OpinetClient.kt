@@ -5,9 +5,12 @@ import com.kumoh.lbs.config.OpinetProperties
 import com.kumoh.lbs.domain.Coordinate
 import com.kumoh.lbs.domain.FuelType
 import com.kumoh.lbs.domain.GasStation
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.core.ParameterizedTypeReference
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
+
+private val logger = KotlinLogging.logger {}
 
 @Component
 class OpinetClient(
@@ -31,23 +34,28 @@ class OpinetClient(
         fuelType: FuelType,
         sort: SortType
     ): List<GasStation> {
-        val response = opinetRestClient.get()
-            .uri {
-                it.path("/aroundAll.do")
-                    .queryParam("code", properties.apiKey)
-                    .queryParam("x", center.katec.x)
-                    .queryParam("y", center.katec.y)
-                    .queryParam("radius", radius)
-                    .queryParam("prodcd", fuelType.code)
-                    .queryParam("sort", sort.code)
-                    .queryParam("out", RESPONSE_TYPE)
-                    .build()
-            }
-            .retrieve()
-            .body(object : ParameterizedTypeReference<OpinetResponse>() {})
-            ?: return emptyList()
+        return try {
+            val response = opinetRestClient.get()
+                .uri {
+                    it.path("/aroundAll.do")
+                        .queryParam("code", properties.apiKey)
+                        .queryParam("x", center.katec.x)
+                        .queryParam("y", center.katec.y)
+                        .queryParam("radius", radius)
+                        .queryParam("prodcd", fuelType.code)
+                        .queryParam("sort", sort.code)
+                        .queryParam("out", RESPONSE_TYPE)
+                        .build()
+                }
+                .retrieve()
+                .body(object : ParameterizedTypeReference<OpinetResponse>() {})
+                ?: return emptyList()
 
-        return response.result.stations.map { it.toGasStation() }
+            response.result.stations.map { it.toGasStation() }
+        } catch (e: Exception) {
+            logger.warn { "OPINET API 호출 실패: ${e.message}" }
+            emptyList()
+        }
     }
 }
 
