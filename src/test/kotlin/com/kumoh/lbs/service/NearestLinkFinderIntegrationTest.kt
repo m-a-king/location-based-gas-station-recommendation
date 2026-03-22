@@ -4,7 +4,6 @@ import com.kumoh.lbs.domain.Coordinate
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import org.junit.jupiter.api.Test
-import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
 import org.springframework.context.annotation.Import
@@ -16,10 +15,9 @@ import org.springframework.test.context.jdbc.Sql
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import(NearestLinkFinder::class)
 @Sql("/data-link-fixture.sql")
-class NearestLinkFinderIntegrationTest {
-
-    @Autowired
-    lateinit var nearestLinkFinder: NearestLinkFinder
+class NearestLinkFinderIntegrationTest(
+    val nearestLinkFinder: NearestLinkFinder
+) {
 
     // KATEC (400000, 600000) → WGS84 (128.0, 38.0) : KATEC 투영 원점
     private fun stationLocation() = Coordinate.fromKatec(Coordinate.Katec(400000.0, 600000.0))

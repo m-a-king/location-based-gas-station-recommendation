@@ -3,7 +3,6 @@ package com.kumoh.lbs.controller
 import com.kumoh.lbs.config.WebConfig
 import com.kumoh.lbs.service.GasStationRecommender
 import org.junit.jupiter.api.Test
-import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
 import org.springframework.context.annotation.Import
 import org.springframework.test.context.bean.override.mockito.MockitoBean
@@ -12,13 +11,10 @@ import org.springframework.test.web.servlet.get
 
 @WebMvcTest(GasStationController::class)
 @Import(WebConfig::class, GlobalExceptionHandler::class)
-class GasStationControllerTest {
-
-    @Autowired
-    lateinit var mockMvc: MockMvc
-
-    @MockitoBean
-    lateinit var gasStationRecommender: GasStationRecommender
+class GasStationControllerTest(
+    val mockMvc: MockMvc,
+    @MockitoBean val gasStationRecommender: GasStationRecommender
+) {
 
     @Test
     fun `좌표 없이 요청하면 400을 반환한다`() {

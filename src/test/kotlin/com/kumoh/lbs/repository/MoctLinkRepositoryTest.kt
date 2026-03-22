@@ -5,7 +5,6 @@ import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
-import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
 import org.springframework.test.context.ActiveProfiles
@@ -15,10 +14,9 @@ import org.springframework.test.context.jdbc.Sql
 @ActiveProfiles("test")
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Sql("/data-link-fixture.sql")
-class MoctLinkRepositoryTest {
-
-    @Autowired
-    lateinit var moctLinkRepository: MoctLinkRepository
+class MoctLinkRepositoryTest(
+    val moctLinkRepository: MoctLinkRepository
+) {
 
     // 주유소 WGS84 좌표: (128.0, 38.0)
     // 검색 반경 200m ≈ 0.0018도
