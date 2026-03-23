@@ -22,7 +22,7 @@ class GasStationController(
     @GetMapping("/best")
     fun findBest(
         userLocation: Coordinate,
-        @RequestParam radius: Int,
+        @RequestParam @Positive @Max(5000) radius: Int,
         @RequestParam fuelType: FuelType,
         @RequestParam @Positive fuelAmount: Double,
         @RequestParam @Positive fuelEfficiency: Double,
