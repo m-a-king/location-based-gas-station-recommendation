@@ -27,7 +27,7 @@ class GasStationControllerTest(
         }.andExpect {
             status { isBadRequest() }
             jsonPath("$.status") { value(400) }
-            jsonPath("$.message") { exists() }
+            jsonPath("$.detail") { exists() }
         }
     }
 
@@ -58,7 +58,7 @@ class GasStationControllerTest(
             param("limit", "3")
         }.andExpect {
             status { isBadRequest() }
-            jsonPath("$.message") { exists() }
+            jsonPath("$.detail") { exists() }
         }
     }
 
