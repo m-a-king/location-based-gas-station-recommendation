@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: location-based service
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+    open-in-view: false
+
+opinet:
+  api-key: ${OPINET_API_KEY}
+
+its:
+  api-key: ${ITS_API_KEY}

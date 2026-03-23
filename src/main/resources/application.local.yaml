@@ -2,26 +2,8 @@ spring:
   config:
     import: optional:file:.env.local[.properties]
 
-  application:
-    name: location-based service
-
-  datasource:
-    url: ${SPRING_DATASOURCE_URL}
-    username: ${SPRING_DATASOURCE_USERNAME}
-    password: ${SPRING_DATASOURCE_PASSWORD}
-
   jpa:
     show-sql: true
-    hibernate:
-      ddl-auto: validate
     properties:
       hibernate:
         format_sql: true
-        dialect: org.hibernate.dialect.MySQLDialect
-    open-in-view: false
-
-opinet:
-  api-key: ${OPINET_API_KEY}
-
-its:
-  api-key: ${ITS_API_KEY}
