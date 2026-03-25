@@ -1,8 +1,10 @@
 package com.kumoh.lbs.service
 
+import com.kumoh.lbs.client.OpinetClient
 import com.kumoh.lbs.domain.Coordinate
 import com.kumoh.lbs.domain.FuelType
 import com.kumoh.lbs.domain.GasStation
+import com.kumoh.lbs.domain.ScoredGasStation
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
@@ -15,30 +17,30 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
 
 @ExtendWith(MockitoExtension::class)
-class GasStationRecommenderTest {
+class GasStationRadiusRecommenderTest {
 
     @Mock
-    lateinit var gasStationFinder: GasStationFinder
+    lateinit var opinetClient: OpinetClient
 
     @Mock
     lateinit var trafficSpeedFinder: TrafficSpeedFinder
 
     @InjectMocks
-    lateinit var gasStationRecommender: GasStationRecommender
+    lateinit var radiusRecommender: GasStationRadiusRecommender
 
-    private val defaultFuelAmount = 40.0
+    private val defaultRefuelLiters = 40.0
     private val defaultFuelEfficiency = 10.0
 
     private fun stubTrafficSpeed(speed: Double = 0.0) {
         whenever(trafficSpeedFinder.findAt(any())).thenReturn(speed)
     }
 
-    private fun recommend(stations: List<GasStation>, limit: Int = 5): List<com.kumoh.lbs.domain.ScoredGasStation> {
+    private fun recommend(stations: List<GasStation>, limit: Int = 5): List<ScoredGasStation> {
         stubTrafficSpeed()
-        return gasStationRecommender.recommend(
+        return radiusRecommender.recommend(
             Coordinate.fromKatec(Coordinate.Katec(100.0, 200.0)),
             radius = 5000, fuelType = FuelType.GASOLINE,
-            fuelAmount = defaultFuelAmount,
+            refuelLiters = defaultRefuelLiters,
             fuelEfficiency = defaultFuelEfficiency,
             limit = limit
         )
@@ -51,7 +53,7 @@ class GasStationRecommenderTest {
             gasStation(id = "2", name = "싼주유소", price = 1500, distance = 100.0),
             gasStation(id = "3", name = "중간주유소", price = 1650, distance = 100.0)
         )
-        whenever(gasStationFinder.findNearby(any(), any(), any())).thenReturn(stations)
+        whenever(opinetClient.searchByRadius(any(), any(), any(), any())).thenReturn(stations)
 
         val result = recommend(stations)
 
@@ -65,7 +67,7 @@ class GasStationRecommenderTest {
             gasStation(id = "1", name = "먼주유소", price = 1600, distance = 3000.0),
             gasStation(id = "2", name = "가까운주유소", price = 1600, distance = 500.0)
         )
-        whenever(gasStationFinder.findNearby(any(), any(), any())).thenReturn(stations)
+        whenever(opinetClient.searchByRadius(any(), any(), any(), any())).thenReturn(stations)
 
         val result = recommend(stations)
 
@@ -77,7 +79,7 @@ class GasStationRecommenderTest {
         val stations = (1..10).map {
             gasStation(id = "$it", name = "주유소$it", price = 1500 + it * 10, distance = 100.0)
         }
-        whenever(gasStationFinder.findNearby(any(), any(), any())).thenReturn(stations)
+        whenever(opinetClient.searchByRadius(any(), any(), any(), any())).thenReturn(stations)
 
         val result = recommend(stations, limit = 3)
 
@@ -86,12 +88,12 @@ class GasStationRecommenderTest {
 
     @Test
     fun `검색 결과가 없으면 빈 리스트를 반환한다`() {
-        whenever(gasStationFinder.findNearby(any(), any(), any())).thenReturn(emptyList())
+        whenever(opinetClient.searchByRadius(any(), any(), any(), any())).thenReturn(emptyList())
 
-        val result = gasStationRecommender.recommend(
+        val result = radiusRecommender.recommend(
             Coordinate.fromKatec(Coordinate.Katec(100.0, 200.0)),
             radius = 5000, fuelType = FuelType.GASOLINE,
-            fuelAmount = defaultFuelAmount,
+            refuelLiters = defaultRefuelLiters,
             fuelEfficiency = defaultFuelEfficiency,
             limit = 5
         )

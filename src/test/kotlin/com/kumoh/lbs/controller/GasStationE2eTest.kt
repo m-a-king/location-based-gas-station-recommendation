@@ -57,54 +57,30 @@ class GasStationE2eTest(
         whenever(itsClient.searchTrafficLinks(any()))
             .thenReturn(trafficLinks)
 
-        // fuelAmount=40, fuelEfficiency=10
+        // refuelLiters=40, fuelEfficiency=10
         // cheapStation:  총주유비=1600*40=64000, 이동연료비=(1.0/10)*1600=160  → 64160
         // closeStation:  총주유비=1800*40=72000, 이동연료비=(0.3/10)*1800=54   → 72054
         // expensiveStation: 총주유비=2000*40=80000, 이동연료비=(2.0/10)*2000=400 → 80400
 
-        mockMvc.get("/api/gas-stations/best") {
+        mockMvc.get("/api/gas-stations/recommendations/radius") {
             param("latitude", "38.0")
             param("longitude", "128.0")
             param("radius", "5000")
             param("fuelType", "GASOLINE")
-            param("fuelAmount", "40.0")
+            param("refuelLiters", "40.0")
             param("fuelEfficiency", "10.0")
             param("limit", "3")
         }.andExpect {
             status { isOk() }
             jsonPath("$.length()") { value(3) }
-            jsonPath("$[0].id") { value("ST001") }
+            jsonPath("$[0].opinetStationId") { value("ST001") }
             jsonPath("$[0].name") { value("싼주유소") }
             jsonPath("$[0].score") { value(64160.0) }
-            jsonPath("$[0].trafficSpeed") { value(45.0) }
-            jsonPath("$[1].id") { value("ST002") }
+            jsonPath("$[0].frontRoadSpeed") { value(45.0) }
+            jsonPath("$[1].opinetStationId") { value("ST002") }
             jsonPath("$[1].score") { value(72054.0) }
-            jsonPath("$[2].id") { value("ST003") }
+            jsonPath("$[2].opinetStationId") { value("ST003") }
             jsonPath("$[2].score") { value(80400.0) }
-        }
-    }
-
-    @Test
-    fun `KATEC 좌표로 요청해도 동일하게 동작한다`() {
-        whenever(opinetClient.searchByRadius(any(), eq(3000), eq(FuelType.DIESEL), eq(SortType.PRICE)))
-            .thenReturn(listOf(cheapStation))
-        whenever(itsClient.searchTrafficLinks(any()))
-            .thenReturn(trafficLinks)
-
-        mockMvc.get("/api/gas-stations/best") {
-            param("katecX", "400000")
-            param("katecY", "600000")
-            param("radius", "3000")
-            param("fuelType", "DIESEL")
-            param("fuelAmount", "30.0")
-            param("fuelEfficiency", "12.0")
-            param("limit", "1")
-        }.andExpect {
-            status { isOk() }
-            jsonPath("$.length()") { value(1) }
-            jsonPath("$[0].id") { value("ST001") }
-            jsonPath("$[0].latitude") { exists() }
-            jsonPath("$[0].longitude") { exists() }
         }
     }
 
@@ -115,12 +91,12 @@ class GasStationE2eTest(
         whenever(itsClient.searchTrafficLinks(any()))
             .thenReturn(emptyList())
 
-        mockMvc.get("/api/gas-stations/best") {
+        mockMvc.get("/api/gas-stations/recommendations/radius") {
             param("latitude", "38.0")
             param("longitude", "128.0")
             param("radius", "5000")
             param("fuelType", "GASOLINE")
-            param("fuelAmount", "40.0")
+            param("refuelLiters", "40.0")
             param("fuelEfficiency", "10.0")
             param("limit", "5")
         }.andExpect {
@@ -134,12 +110,12 @@ class GasStationE2eTest(
         whenever(opinetClient.searchByRadius(any(), any(), any(), any()))
             .thenReturn(emptyList())
 
-        mockMvc.get("/api/gas-stations/best") {
+        mockMvc.get("/api/gas-stations/recommendations/radius") {
             param("latitude", "38.0")
             param("longitude", "128.0")
             param("radius", "5000")
             param("fuelType", "GASOLINE")
-            param("fuelAmount", "40.0")
+            param("refuelLiters", "40.0")
             param("fuelEfficiency", "10.0")
             param("limit", "3")
         }.andExpect {
@@ -155,17 +131,17 @@ class GasStationE2eTest(
         whenever(itsClient.searchTrafficLinks(any()))
             .thenReturn(emptyList())
 
-        mockMvc.get("/api/gas-stations/best") {
+        mockMvc.get("/api/gas-stations/recommendations/radius") {
             param("latitude", "38.0")
             param("longitude", "128.0")
             param("radius", "5000")
             param("fuelType", "GASOLINE")
-            param("fuelAmount", "40.0")
+            param("refuelLiters", "40.0")
             param("fuelEfficiency", "10.0")
             param("limit", "1")
         }.andExpect {
             status { isOk() }
-            jsonPath("$[0].trafficSpeed") { value(0.0) }
+            jsonPath("$[0].frontRoadSpeed") { value(0.0) }
         }
     }
 }
