@@ -41,15 +41,13 @@ class KakaoDirectionsClient(
     ): Route? {
         return try {
             val response = kakaoRestClient.get()
-                .uri {
-                    it.path("/v1/directions")
-                        .queryParam("origin", "${origin.wgs84.longitude},${origin.wgs84.latitude}")
-                        .queryParam("destination", "${destination.wgs84.longitude},${destination.wgs84.latitude}")
+                .uri { builder ->
+                    builder.path("/v1/directions")
+                        .queryParam("origin", origin.toLngLatString())
+                        .queryParam("destination", destination.toLngLatString())
                         .queryParam("priority", "RECOMMEND")
-                    if (waypoint != null) {
-                        it.queryParam("waypoints", "${waypoint.wgs84.longitude},${waypoint.wgs84.latitude}")
-                    }
-                    it.build()
+                    waypoint?.let { builder.queryParam("waypoints", it.toLngLatString()) }
+                    builder.build()
                 }
                 .header("Authorization", "KakaoAK ${properties.apiKey}")
                 .retrieve()
@@ -69,9 +67,11 @@ class KakaoDirectionsClient(
 
             val polyline = kakaoRoute.extractPolyline()
             logger.info { "카카오 길찾기 성공: 거리=${distance}m, 폴리라인=${polyline.size}개 좌표" }
+
             Route(polyline = polyline, distanceMeters = distance)
         } catch (e: Exception) {
             logger.warn { "카카오 길찾기 API 호출 실패: ${e.message}" }
+
             null
         }
     }
@@ -127,3 +127,5 @@ data class KakaoRoad(
             .map { Coordinate.fromWgs84(Coordinate.Wgs84(latitude = v[it + 1], longitude = v[it])) }
     }
 }
+
+private fun Coordinate.toLngLatString() = "${wgs84.longitude},${wgs84.latitude}"
