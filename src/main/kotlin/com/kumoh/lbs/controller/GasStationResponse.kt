@@ -1,9 +1,11 @@
 package com.kumoh.lbs.controller
 
+import com.fasterxml.jackson.annotation.JsonInclude
 import com.kumoh.lbs.domain.ScoredGasStation
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 data class GasStationResponse(
-    val id: String,
+    val opinetStationId: String,
     val name: String,
     val brand: String,
     val latitude: Double,
@@ -11,11 +13,12 @@ data class GasStationResponse(
     val price: Int,
     val distance: Double,
     val score: Double,
-    val trafficSpeed: Double
+    val frontRoadSpeed: Double,
+    val detourDistance: Double? = null
 ) {
     companion object {
         fun from(scored: ScoredGasStation) = GasStationResponse(
-            id = scored.station.id,
+            opinetStationId = scored.station.id,
             name = scored.station.name,
             brand = scored.station.brand,
             latitude = scored.station.location.wgs84.latitude,
@@ -23,7 +26,8 @@ data class GasStationResponse(
             price = scored.station.price,
             distance = scored.station.distance,
             score = scored.score,
-            trafficSpeed = scored.trafficSpeed
+            frontRoadSpeed = scored.frontRoadSpeed,
+            detourDistance = scored.detourDistance
         )
     }
 }
