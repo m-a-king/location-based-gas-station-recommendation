@@ -2,15 +2,12 @@ package com.kumoh.lbs.controller
 
 import com.kumoh.lbs.client.ItsClient
 import com.kumoh.lbs.client.KakaoDirectionsClient
-import com.kumoh.lbs.client.KakaoRoad
-import com.kumoh.lbs.client.KakaoRoute
-import com.kumoh.lbs.client.KakaoRouteSummary
-import com.kumoh.lbs.client.KakaoSection
 import com.kumoh.lbs.client.OpinetClient
 import com.kumoh.lbs.client.TrafficLink
 import com.kumoh.lbs.domain.Coordinate
 import com.kumoh.lbs.domain.FuelType
 import com.kumoh.lbs.domain.GasStation
+import com.kumoh.lbs.domain.Route
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
@@ -39,10 +36,7 @@ class RouteGasStationE2eTest(
     private val destination = Coordinate.fromWgs84(Coordinate.Wgs84(37.1, 127.1))
 
     // 기본 경로: 15km, 폴리라인 3개 좌표 (직선)
-    private val baseRoute = kakaoRoute(
-        distance = 15000,
-        vertexes = listOf(127.0, 37.0, 127.05, 37.05, 127.1, 37.1)
-    )
+    private val baseRoute = route(distance = 15000)
 
     // 경로 위 주유소 (경로에 가까움)
     private val onRouteStation = GasStation(
@@ -73,13 +67,13 @@ class RouteGasStationE2eTest(
 
         // 경유 경로 거리: 경로 위 주유소 = 15200m (추가 200m), 경로 밖 주유소 = 21000m (추가 6000m), 비싼 = 15100m
         whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), any()))
-            .thenReturn(kakaoRoute(distance = 15200)) // 기본 응답
+            .thenReturn(route(distance = 15200)) // 기본 응답
         whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), eq(onRouteStation.location)))
-            .thenReturn(kakaoRoute(distance = 15200))
+            .thenReturn(route(distance = 15200))
         whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), eq(offRouteStation.location)))
-            .thenReturn(kakaoRoute(distance = 21000))
+            .thenReturn(route(distance = 21000))
         whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), eq(expensiveOnRouteStation.location)))
-            .thenReturn(kakaoRoute(distance = 15100))
+            .thenReturn(route(distance = 15100))
 
         // refuelLiters=40, fuelEfficiency=10
         // onRoute:   1650*40 + (200/1000/10)*1650  = 66000 + 33    = 66033
@@ -115,7 +109,7 @@ class RouteGasStationE2eTest(
 
         // onRoute: waypoint 조회 성공
         whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), eq(onRouteStation.location)))
-            .thenReturn(kakaoRoute(distance = 15200))
+            .thenReturn(route(distance = 15200))
         // offRoute: waypoint 조회 실패 → null → 1차 직선거리 점수 유지
         whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), eq(offRouteStation.location)))
             .thenReturn(null)
@@ -183,7 +177,7 @@ class RouteGasStationE2eTest(
         stubOpinetReturns(listOf(onRouteStation))
         stubItsEmpty()
         whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), any()))
-            .thenReturn(kakaoRoute(distance = 15300))
+            .thenReturn(route(distance = 15300))
 
         mockMvc.get("/api/gas-stations/recommendations/route") {
             param("originLongitude", "127.0")
@@ -224,7 +218,7 @@ class RouteGasStationE2eTest(
         whenever(itsClient.searchTrafficLinks(any()))
             .thenReturn(listOf(TrafficLink("테스트도로", "3280033641", "55.0", "60", "2026-03-24")))
         whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), any()))
-            .thenReturn(kakaoRoute(distance = 15200))
+            .thenReturn(route(distance = 15200))
 
         mockMvc.get("/api/gas-stations/recommendations/route") {
             param("originLongitude", "127.0")
@@ -258,28 +252,12 @@ class RouteGasStationE2eTest(
         whenever(itsClient.searchTrafficLinks(any())).thenReturn(emptyList())
     }
 
-    private fun kakaoRoute(distance: Int, vertexes: List<Double>? = null): KakaoRoute {
-        val vx = vertexes ?: listOf(127.0, 37.0, 127.05, 37.05, 127.1, 37.1)
-        return KakaoRoute(
-            resultCode = 0,
-            resultMsg = "길찾기 성공",
-            summary = KakaoRouteSummary(distance = distance, duration = 1200, fare = null),
-            sections = listOf(
-                KakaoSection(
-                    distance = distance,
-                    duration = 1200,
-                    roads = listOf(
-                        KakaoRoad(
-                            name = "테스트도로",
-                            distance = distance,
-                            duration = 1200,
-                            trafficSpeed = 50.0,
-                            trafficState = 0,
-                            vertexes = vx
-                        )
-                    )
-                )
-            )
+    private fun route(distance: Int, coordinates: List<Coordinate>? = null): Route {
+        val polyline = coordinates ?: listOf(
+            Coordinate.fromWgs84(Coordinate.Wgs84(37.0, 127.0)),
+            Coordinate.fromWgs84(Coordinate.Wgs84(37.05, 127.05)),
+            Coordinate.fromWgs84(Coordinate.Wgs84(37.1, 127.1))
         )
+        return Route(polyline = polyline, distanceMeters = distance)
     }
 }

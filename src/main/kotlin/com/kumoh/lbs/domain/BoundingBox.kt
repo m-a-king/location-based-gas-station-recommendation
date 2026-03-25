@@ -9,7 +9,10 @@ class BoundingBox private constructor(
     companion object {
         private const val METERS_PER_LATITUDE_DEGREE = 111_320.0
 
-        fun around(center: Coordinate, radiusMeters: Int): BoundingBox {
+        fun around(
+            center: Coordinate,
+            radiusMeters: Int
+        ): BoundingBox {
             val latRadiusDegrees = radiusMeters / METERS_PER_LATITUDE_DEGREE
             val lonRadiusDegrees = radiusMeters / (METERS_PER_LATITUDE_DEGREE * cos(Math.toRadians(center.wgs84.latitude)))
             return BoundingBox(

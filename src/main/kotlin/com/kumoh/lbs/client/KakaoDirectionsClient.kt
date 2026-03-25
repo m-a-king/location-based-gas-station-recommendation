@@ -3,6 +3,7 @@ package com.kumoh.lbs.client
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.kumoh.lbs.config.KakaoProperties
 import com.kumoh.lbs.domain.Coordinate
+import com.kumoh.lbs.domain.Route
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.core.ParameterizedTypeReference
 import org.springframework.stereotype.Component
@@ -20,45 +21,55 @@ class KakaoDirectionsClient(
         const val BASE_URL = "https://apis-navi.kakaomobility.com"
     }
 
-    fun searchRoute(origin: Coordinate, destination: Coordinate): KakaoRoute? =
+    fun searchRoute(
+        origin: Coordinate,
+        destination: Coordinate
+    ): Route? =
         requestRoute(origin, destination)
 
     fun searchRouteViaWaypoint(
         origin: Coordinate,
         destination: Coordinate,
         waypoint: Coordinate
-    ): KakaoRoute? =
+    ): Route? =
         requestRoute(origin, destination, waypoint)
 
     private fun requestRoute(
         origin: Coordinate,
         destination: Coordinate,
         waypoint: Coordinate? = null
-    ): KakaoRoute? {
+    ): Route? {
         return try {
             val response = kakaoRestClient.get()
-                .uri { builder ->
-                    builder.path("/v1/directions")
+                .uri {
+                    it.path("/v1/directions")
                         .queryParam("origin", "${origin.wgs84.longitude},${origin.wgs84.latitude}")
                         .queryParam("destination", "${destination.wgs84.longitude},${destination.wgs84.latitude}")
                         .queryParam("priority", "RECOMMEND")
                     if (waypoint != null) {
-                        builder.queryParam("waypoints", "${waypoint.wgs84.longitude},${waypoint.wgs84.latitude}")
+                        it.queryParam("waypoints", "${waypoint.wgs84.longitude},${waypoint.wgs84.latitude}")
                     }
-                    builder.build()
+                    it.build()
                 }
                 .header("Authorization", "KakaoAK ${properties.apiKey}")
                 .retrieve()
                 .body(object : ParameterizedTypeReference<KakaoDirectionsResponse>() {})
 
-            val route = response?.routes?.firstOrNull()
-            if (route == null || route.resultCode != 0) {
-                logger.warn { "카카오 길찾기 실패: resultCode=${route?.resultCode}" }
+            val kakaoRoute = response?.routes?.firstOrNull()
+            if (kakaoRoute == null || kakaoRoute.resultCode != 0) {
+                logger.warn { "카카오 길찾기 실패: resultCode=${kakaoRoute?.resultCode}" }
                 return null
             }
 
-            logger.info { "카카오 길찾기 성공: 거리=${route.summary?.distance}m" }
-            route
+            val distance = kakaoRoute.summary?.distance
+            if (distance == null) {
+                logger.warn { "카카오 길찾기 응답에 거리 정보 없음" }
+                return null
+            }
+
+            val polyline = kakaoRoute.extractPolyline()
+            logger.info { "카카오 길찾기 성공: 거리=${distance}m, 폴리라인=${polyline.size}개 좌표" }
+            Route(polyline = polyline, distanceMeters = distance)
         } catch (e: Exception) {
             logger.warn { "카카오 길찾기 API 호출 실패: ${e.message}" }
             null
@@ -77,11 +88,9 @@ data class KakaoRoute(
     @JsonProperty("summary") val summary: KakaoRouteSummary?,
     @JsonProperty("sections") val sections: List<KakaoSection>?
 ) {
-    fun extractPolyline(): List<Coordinate.Wgs84> {
-        return sections?.flatMap { section ->
-            section.roads?.flatMap { road ->
-                road.vertexPairs()
-            } ?: emptyList()
+    fun extractPolyline(): List<Coordinate> {
+        return sections?.flatMap {
+            it.roads?.flatMap { road -> road.toCoordinates() } ?: emptyList()
         } ?: emptyList()
     }
 }
@@ -111,10 +120,10 @@ data class KakaoRoad(
     @JsonProperty("traffic_state") val trafficState: Int?,
     @JsonProperty("vertexes") val vertexes: List<Double>?
 ) {
-    fun vertexPairs(): List<Coordinate.Wgs84> {
+    fun toCoordinates(): List<Coordinate> {
         val v = vertexes ?: return emptyList()
         return (v.indices step 2)
             .filter { it + 1 < v.size }
-            .map { i -> Coordinate.Wgs84(latitude = v[i + 1], longitude = v[i]) }
+            .map { Coordinate.fromWgs84(Coordinate.Wgs84(latitude = v[it + 1], longitude = v[it])) }
     }
 }

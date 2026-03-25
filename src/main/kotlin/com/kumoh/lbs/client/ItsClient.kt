@@ -22,8 +22,8 @@ class ItsClient(
     fun searchTrafficLinks(box: BoundingBox): List<TrafficLink> {
         return try {
             val response = itsRestClient.get()
-                .uri { builder ->
-                    builder.path("/trafficInfo")
+                .uri {
+                    it.path("/trafficInfo")
                         .queryParam("apiKey", properties.apiKey)
                         .queryParam("type", "all")
                         .queryParam("drcType", "all")

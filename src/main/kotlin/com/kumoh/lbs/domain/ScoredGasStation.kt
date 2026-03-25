@@ -20,7 +20,11 @@ class ScoredGasStation(
          * @param refuelLiters 주유량 (L)
          * @param fuelEfficiency 차량 연비 (km/L)
          */
-        fun of(station: GasStation, refuelLiters: Double, fuelEfficiency: Double): ScoredGasStation {
+        fun of(
+            station: GasStation,
+            refuelLiters: Double,
+            fuelEfficiency: Double
+        ): ScoredGasStation {
             val totalFuelCost = station.price * refuelLiters
             val distanceKm = station.distance / METERS_PER_KM
             val tripFuelCost = (distanceKm / fuelEfficiency) * station.price
