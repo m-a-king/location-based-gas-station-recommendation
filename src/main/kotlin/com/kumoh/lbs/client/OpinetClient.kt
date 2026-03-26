@@ -5,6 +5,7 @@ import com.kumoh.lbs.config.OpinetProperties
 import com.kumoh.lbs.domain.Coordinate
 import com.kumoh.lbs.domain.FuelType
 import com.kumoh.lbs.domain.GasStation
+import com.kumoh.lbs.exception.ExternalApiException
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.core.ParameterizedTypeReference
 import org.springframework.stereotype.Component
@@ -49,12 +50,14 @@ class OpinetClient(
                 }
                 .retrieve()
                 .body(object : ParameterizedTypeReference<OpinetResponse>() {})
-                ?: return emptyList()
+                ?: throw ExternalApiException("OPINET API가 예상치 못한 응답을 반환했습니다.")
 
             response.result.stations.map { it.toGasStation() }
+        } catch (e: ExternalApiException) {
+            throw e
         } catch (e: Exception) {
-            logger.warn { "OPINET API 호출 실패: ${e.message}" }
-            emptyList()
+            logger.error { "OPINET API 호출 실패: ${e.message}" }
+            throw ExternalApiException("주유소 데이터를 불러올 수 없습니다.", e)
         }
     }
 }

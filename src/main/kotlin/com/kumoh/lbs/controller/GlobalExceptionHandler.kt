@@ -1,5 +1,6 @@
 package com.kumoh.lbs.controller
 
+import com.kumoh.lbs.exception.ExternalApiException
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.validation.ConstraintViolationException
 import org.springframework.http.HttpStatus
@@ -14,6 +15,12 @@ private val logger = KotlinLogging.logger {}
 
 @RestControllerAdvice
 class GlobalExceptionHandler {
+
+    @ExceptionHandler(ExternalApiException::class)
+    fun handleExternalApi(e: ExternalApiException): ProblemDetail {
+        logger.error(e) { "외부 API 호출 실패" }
+        return ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, e.message ?: "외부 서비스에 일시적으로 접근할 수 없습니다.")
+    }
 
     @ExceptionHandler(IllegalArgumentException::class)
     fun handleIllegalArgument(e: IllegalArgumentException): ProblemDetail =
