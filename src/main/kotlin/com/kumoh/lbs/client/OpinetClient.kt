@@ -34,7 +34,7 @@ class OpinetClient(
         radius: Int,
         fuelType: FuelType,
         sort: SortType
-    ): List<GasStation> {
+    ): List<OpinetStation> {
         return try {
             val response = opinetRestClient.get()
                 .uri {
@@ -52,7 +52,7 @@ class OpinetClient(
                 .body(object : ParameterizedTypeReference<OpinetResponse>() {})
                 ?: throw ExternalApiException("OPINET API가 예상치 못한 응답을 반환했습니다.")
 
-            response.result.stations.map { it.toGasStation() }
+            response.result.stations
         } catch (e: ExternalApiException) {
             throw e
         } catch (e: Exception) {
@@ -79,12 +79,14 @@ data class OpinetStation(
     @JsonProperty("GIS_X_COOR") val katecX: Double,
     @JsonProperty("GIS_Y_COOR") val katecY: Double
 ) {
-    fun toGasStation() = GasStation(
-        id = stationId,
-        name = stationName,
-        brand = brandCode,
-        location = Coordinate.fromKatec(Coordinate.Katec(katecX, katecY)),
-        price = price,
-        distance = distance
-    )
+    fun toGasStation(): GasStation {
+        val wgs84 = Coordinate.fromKatec(Coordinate.Katec(katecX, katecY)).wgs84
+        return GasStation(
+            id = stationId,
+            name = stationName,
+            brand = brandCode,
+            latitude = wgs84.latitude,
+            longitude = wgs84.longitude
+        )
+    }
 }

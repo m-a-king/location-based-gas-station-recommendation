@@ -3,11 +3,10 @@ package com.kumoh.lbs.domain
 class ScoredGasStation(
     val station: GasStation,
     val score: Double,
-    val frontRoadSpeed: Double = 0.0,
+    val price: Int,
+    val distance: Double,
     val detourDistance: Double? = null
 ) {
-    fun withFrontRoadSpeed(speed: Double) = ScoredGasStation(station, score, speed, detourDistance)
-
     companion object {
         private const val METERS_PER_KM = 1000.0
 
@@ -22,14 +21,16 @@ class ScoredGasStation(
          */
         fun of(
             station: GasStation,
+            price: Int,
+            distance: Double,
             refuelLiters: Double,
             fuelEfficiency: Double
         ): ScoredGasStation {
-            val totalFuelCost = station.price * refuelLiters
-            val distanceKm = station.distance / METERS_PER_KM
-            val tripFuelCost = (distanceKm / fuelEfficiency) * station.price
+            val totalFuelCost = price * refuelLiters
+            val distanceKm = distance / METERS_PER_KM
+            val tripFuelCost = (distanceKm / fuelEfficiency) * price
             val score = totalFuelCost + tripFuelCost
-            return ScoredGasStation(station, score)
+            return ScoredGasStation(station, score, price, distance)
         }
 
         /**
@@ -44,15 +45,17 @@ class ScoredGasStation(
          */
         fun ofWithDetour(
             station: GasStation,
+            price: Int,
+            distance: Double,
             refuelLiters: Double,
             fuelEfficiency: Double,
             detourDistance: Double
         ): ScoredGasStation {
-            val totalFuelCost = station.price * refuelLiters
+            val totalFuelCost = price * refuelLiters
             val detourKm = detourDistance / METERS_PER_KM
-            val detourFuelCost = (detourKm / fuelEfficiency) * station.price
+            val detourFuelCost = (detourKm / fuelEfficiency) * price
             val score = totalFuelCost + detourFuelCost
-            return ScoredGasStation(station, score, detourDistance = detourDistance)
+            return ScoredGasStation(station, score, price, distance, detourDistance)
         }
     }
 }
