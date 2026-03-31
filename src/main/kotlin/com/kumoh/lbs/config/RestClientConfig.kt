@@ -1,6 +1,5 @@
 package com.kumoh.lbs.config
 
-import com.kumoh.lbs.client.ItsClient
 import com.kumoh.lbs.client.KakaoDirectionsClient
 import com.kumoh.lbs.client.OpinetClient
 import org.springframework.context.annotation.Bean
@@ -30,13 +29,6 @@ class RestClientConfig {
             .configureMessageConverters { it.addCustomConverter(converter) }
             .build()
     }
-
-    @Bean
-    fun itsRestClient(): RestClient =
-        RestClient.builder()
-            .baseUrl(ItsClient.BASE_URL)
-            .requestFactory(createRequestFactory())
-            .build()
 
     @Bean
     fun kakaoRestClient(): RestClient =

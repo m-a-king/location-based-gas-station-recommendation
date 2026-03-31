@@ -1,33 +1,28 @@
 package com.kumoh.lbs.controller
 
-import com.kumoh.lbs.client.ItsClient
 import com.kumoh.lbs.client.KakaoDirectionsClient
 import com.kumoh.lbs.client.OpinetClient
-import com.kumoh.lbs.client.TrafficLink
+import com.kumoh.lbs.client.OpinetStation
 import com.kumoh.lbs.domain.Coordinate
-import com.kumoh.lbs.domain.FuelType
-import com.kumoh.lbs.domain.GasStation
 import com.kumoh.lbs.domain.Route
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
-import org.mockito.kotlin.eq
+import org.mockito.kotlin.argThat
 import org.mockito.kotlin.whenever
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.bean.override.mockito.MockitoBean
-import org.springframework.test.context.jdbc.Sql
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
+import kotlin.math.abs
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Sql("/data-link-fixture.sql")
 class RouteGasStationE2eTest(
     val mockMvc: MockMvc,
     @MockitoBean val opinetClient: OpinetClient,
-    @MockitoBean val itsClient: ItsClient,
     @MockitoBean val kakaoDirectionsClient: KakaoDirectionsClient
 ) {
 
@@ -39,40 +34,34 @@ class RouteGasStationE2eTest(
     private val baseRoute = route(distance = 15000)
 
     // 경로 위 주유소 (경로에 가까움)
-    private val onRouteStation = GasStation(
-        id = "ON_ROUTE", name = "경로위주유소", brand = "SKE",
-        location = Coordinate.fromWgs84(Coordinate.Wgs84(37.05, 127.05)),
-        price = 1650, distance = 500.0
+    private val onRouteStation = opinetStation(
+        id = "ON_ROUTE", name = "경로위주유소", brandCode = "SKE",
+        lat = 37.05, lon = 127.05, price = 1650, distance = 500.0
     )
 
     // 경로에서 먼 주유소 (싸지만 멀리 우회)
-    private val offRouteStation = GasStation(
-        id = "OFF_ROUTE", name = "경로밖싼주유소", brand = "GSC",
-        location = Coordinate.fromWgs84(Coordinate.Wgs84(37.08, 127.0)),
-        price = 1500, distance = 3000.0
+    private val offRouteStation = opinetStation(
+        id = "OFF_ROUTE", name = "경로밖싼주유소", brandCode = "GSC",
+        lat = 37.08, lon = 127.0, price = 1500, distance = 3000.0
     )
 
     // 경로 위 비싼 주유소
-    private val expensiveOnRouteStation = GasStation(
-        id = "EXPENSIVE", name = "경로위비싼주유소", brand = "HDO",
-        location = Coordinate.fromWgs84(Coordinate.Wgs84(37.03, 127.03)),
-        price = 1900, distance = 400.0
+    private val expensiveOnRouteStation = opinetStation(
+        id = "EXPENSIVE", name = "경로위비싼주유소", brandCode = "HDO",
+        lat = 37.03, lon = 127.03, price = 1900, distance = 400.0
     )
 
     @Test
     fun `경로 기반 추천은 실제 우회 거리를 반영하여 점수를 매긴다`() {
         stubBaseRoute()
         stubOpinetReturns(listOf(onRouteStation, offRouteStation, expensiveOnRouteStation))
-        stubItsEmpty()
 
         // 경유 경로 거리: 경로 위 주유소 = 15200m (추가 200m), 경로 밖 주유소 = 21000m (추가 6000m), 비싼 = 15100m
-        whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), any()))
-            .thenReturn(route(distance = 15200)) // 기본 응답
-        whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), eq(onRouteStation.location)))
+        whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), coordAt(37.05, 127.05)))
             .thenReturn(route(distance = 15200))
-        whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), eq(offRouteStation.location)))
+        whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), coordAt(37.08, 127.0)))
             .thenReturn(route(distance = 21000))
-        whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), eq(expensiveOnRouteStation.location)))
+        whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), coordAt(37.03, 127.03)))
             .thenReturn(route(distance = 15100))
 
         // refuelLiters=40, fuelEfficiency=10
@@ -105,13 +94,12 @@ class RouteGasStationE2eTest(
     fun `경유 경로 조회 실패 시 1차 직선거리 점수로 대체한다`() {
         stubBaseRoute()
         stubOpinetReturns(listOf(onRouteStation, offRouteStation))
-        stubItsEmpty()
 
         // onRoute: waypoint 조회 성공
-        whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), eq(onRouteStation.location)))
+        whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), coordAt(37.05, 127.05)))
             .thenReturn(route(distance = 15200))
         // offRoute: waypoint 조회 실패 → null → 1차 직선거리 점수 유지
-        whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), eq(offRouteStation.location)))
+        whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), coordAt(37.08, 127.0)))
             .thenReturn(null)
 
         mockMvc.get("/api/gas-stations/recommendations/route") {
@@ -175,7 +163,6 @@ class RouteGasStationE2eTest(
     fun `limit보다 주유소가 적으면 있는 만큼만 반환한다`() {
         stubBaseRoute()
         stubOpinetReturns(listOf(onRouteStation))
-        stubItsEmpty()
         whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), any()))
             .thenReturn(route(distance = 15300))
 
@@ -212,11 +199,9 @@ class RouteGasStationE2eTest(
     }
 
     @Test
-    fun `응답에 좌표와 교통속도가 포함된다`() {
+    fun `응답에 좌표와 점수가 포함된다`() {
         stubBaseRoute()
         stubOpinetReturns(listOf(onRouteStation))
-        whenever(itsClient.searchTrafficLinks(any()))
-            .thenReturn(listOf(TrafficLink("테스트도로", "3280033641", "55.0", "60", "2026-03-24")))
         whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), any()))
             .thenReturn(route(distance = 15200))
 
@@ -234,7 +219,7 @@ class RouteGasStationE2eTest(
             jsonPath("$[0].latitude") { isNumber() }
             jsonPath("$[0].longitude") { isNumber() }
             jsonPath("$[0].price") { value(1650) }
-            jsonPath("$[0].frontRoadSpeed") { value(55.0) }
+            jsonPath("$[0].score") { isNumber() }
         }
     }
 
@@ -244,12 +229,33 @@ class RouteGasStationE2eTest(
         whenever(kakaoDirectionsClient.searchRoute(any(), any())).thenReturn(baseRoute)
     }
 
-    private fun stubOpinetReturns(stations: List<GasStation>) {
+    private fun stubOpinetReturns(stations: List<OpinetStation>) {
         whenever(opinetClient.searchByRadius(any(), any(), any(), any())).thenReturn(stations)
     }
 
-    private fun stubItsEmpty() {
-        whenever(itsClient.searchTrafficLinks(any())).thenReturn(emptyList())
+    /** WGS84 좌표 기준으로 Coordinate 인자를 매칭 (부동소수점 오차 허용) */
+    private fun coordAt(lat: Double, lon: Double): Coordinate =
+        argThat { abs(wgs84.latitude - lat) < 0.001 && abs(wgs84.longitude - lon) < 0.001 }
+
+    private fun opinetStation(
+        id: String,
+        name: String,
+        brandCode: String,
+        lat: Double,
+        lon: Double,
+        price: Int,
+        distance: Double
+    ): OpinetStation {
+        val katec = Coordinate.fromWgs84(Coordinate.Wgs84(lat, lon)).katec
+        return OpinetStation(
+            stationId = id,
+            stationName = name,
+            brandCode = brandCode,
+            price = price,
+            distance = distance,
+            katecX = katec.x,
+            katecY = katec.y
+        )
     }
 
     private fun route(distance: Int, coordinates: List<Coordinate>? = null): Route {

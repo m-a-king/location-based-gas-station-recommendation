@@ -18,8 +18,5 @@ spring:
 opinet:
   api-key: ${OPINET_API_KEY}
 
-its:
-  api-key: ${ITS_API_KEY}
-
 kakao:
   api-key: ${KAKAO_API_KEY}

@@ -12,8 +12,7 @@ private val logger = KotlinLogging.logger {}
 
 @Service
 class GasStationRadiusRecommender(
-    private val opinetClient: OpinetClient,
-    private val trafficSpeedFinder: TrafficSpeedFinder
+    private val opinetClient: OpinetClient
 ) {
 
     fun recommend(
@@ -28,12 +27,10 @@ class GasStationRadiusRecommender(
         logger.info { "주변 주유소 검색: ${stations.size}건, radius=$radius" }
 
         val topCandidates = stations
-            .map { ScoredGasStation.of(it, refuelLiters, fuelEfficiency) }
+            .map { ScoredGasStation.of(it.toGasStation(), it.price, it.distance, refuelLiters, fuelEfficiency) }
             .sortedBy { it.score }
             .take(limit)
 
-        return topCandidates.map {
-            it.withFrontRoadSpeed(trafficSpeedFinder.findAt(it.station.location))
-        }
+        return topCandidates
     }
 }

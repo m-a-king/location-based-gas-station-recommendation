@@ -15,8 +15,7 @@ private val logger = KotlinLogging.logger {}
 @Service
 class GasStationRouteRecommender(
     private val kakaoDirectionsClient: KakaoDirectionsClient,
-    private val opinetClient: OpinetClient,
-    private val trafficSpeedFinder: TrafficSpeedFinder
+    private val opinetClient: OpinetClient
 ) {
 
     companion object {
@@ -45,15 +44,16 @@ class GasStationRouteRecommender(
 
         val uniqueStations = samplePoints
             .flatMap { opinetClient.searchByRadius(it, SEARCH_RADIUS, fuelType, SortType.PRICE) }
-            .distinctBy { it.id }
+            .distinctBy { it.stationId }
 
         logger.info { "경로 주변 주유소: ${uniqueStations.size}건 (중복 제거 후)" }
 
         // STEP 3: 1차 필터 (직선거리 기반, 상위 limit × 3)
         val preliminaryCandidates = uniqueStations
             .map { station ->
-                val detourDistance = calculateDetourDistance(station.location, route.polyline)
-                ScoredGasStation.ofWithDetour(station, refuelLiters, fuelEfficiency, detourDistance)
+                val stationEntity = station.toGasStation()
+                val detourDistance = calculateDetourDistance(stationEntity.coordinate, route.polyline)
+                ScoredGasStation.ofWithDetour(stationEntity, station.price, station.distance, refuelLiters, fuelEfficiency, detourDistance)
             }
             .sortedBy { it.score }
             .take(limit * PRELIMINARY_FILTER_MULTIPLIER)
@@ -63,7 +63,7 @@ class GasStationRouteRecommender(
         // STEP 4: 2차 정밀 계산 (실제 경유 경로 거리)
         val refinedCandidates = preliminaryCandidates.mapNotNull { scored ->
             val viaRoute = kakaoDirectionsClient.searchRouteViaWaypoint(
-                origin, destination, scored.station.location
+                origin, destination, scored.station.coordinate
             )
             if (viaRoute == null) {
                 logger.debug { "경유 경로 조회 실패: ${scored.station.name}, 1차 점수 유지" }
@@ -71,17 +71,12 @@ class GasStationRouteRecommender(
             }
 
             val actualDetour = (viaRoute.distanceMeters - route.distanceMeters).coerceAtLeast(0).toDouble()
-            ScoredGasStation.ofWithDetour(scored.station, refuelLiters, fuelEfficiency, actualDetour)
+            ScoredGasStation.ofWithDetour(scored.station, scored.price, scored.distance, refuelLiters, fuelEfficiency, actualDetour)
         }
 
-        // STEP 5: 최종 정렬 + 교통 속도 부착
-        val topCandidates = refinedCandidates
+        return refinedCandidates
             .sortedBy { it.score }
             .take(limit)
-
-        return topCandidates.map {
-            it.withFrontRoadSpeed(trafficSpeedFinder.findAt(it.station.location))
-        }
     }
 
     private fun samplePolyline(
