@@ -17,6 +17,8 @@ spring:
 
 opinet:
   api-key: ${OPINET_API_KEY}
+  user-id: ${OPINET_USER_ID}
+  password: ${OPINET_PASSWORD}
 
 kakao:
   api-key: ${KAKAO_API_KEY}

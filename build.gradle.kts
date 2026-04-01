@@ -58,3 +58,21 @@ allOpen {
 tasks.withType<Test> {
     useJUnitPlatform()
 }
+
+tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
+    jvmArgs("-Djdk.tls.disabledAlgorithms=SSLv3, TLSv1, TLSv1.1, RC4, DES, MD5withRSA, anon, NULL")
+}
+
+tasks.register<JavaExec>("runOpinetLocalTest") {
+    group = "verification"
+    description = "OPINET CSV 다운로드 로컬 테스트 (자격증명 하드코딩, git 제외)"
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("com.kumoh.lbs.client.OpinetCsvDownloaderLocalTestKt")
+}
+
+tasks.register<JavaExec>("runOpinetTest") {
+    group = "verification"
+    description = "OPINET CSV 다운로드 수동 테스트 (환경변수 필요: OPINET_USER_ID, OPINET_PASSWORD, OPINET_API_KEY)"
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("com.kumoh.lbs.client.OpinetCsvDownloaderManualTestKt")
+}
