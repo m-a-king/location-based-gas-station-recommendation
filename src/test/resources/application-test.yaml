@@ -4,9 +4,8 @@ spring:
     driver-class-name: org.h2.Driver
     username: sa
     password:
-  sql:
-    init:
-      mode: always
+  flyway:
+    enabled: true
   jpa:
     hibernate:
       ddl-auto: none

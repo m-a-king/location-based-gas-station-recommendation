@@ -7,6 +7,7 @@ import java.math.BigInteger
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URLEncoder
+import java.nio.charset.Charset
 import java.security.KeyFactory
 import java.security.spec.RSAPublicKeySpec
 import java.time.LocalDate
@@ -34,6 +35,8 @@ class OpinetCsvDownloader(
 ) {
 
     companion object {
+        val CSV_CHARSET: Charset = Charset.forName("MS949")
+
         private const val BASE_URL = "https://www.opinet.co.kr"
         private const val DOWNLOAD_URL = "$BASE_URL/user/main/main_download_excel.do"
         private const val DOWNLOAD_PAGE_URL = "$BASE_URL/user/opdown/opDownload.do"

@@ -1,35 +1,22 @@
 package com.kumoh.lbs.gasstation.batch.service
 
 import com.kumoh.lbs.gasstation.batch.client.KakaoLocalClient
-import com.kumoh.lbs.gasstation.batch.domain.BatchMetadata
-import com.kumoh.lbs.gasstation.batch.repository.BatchMetadataRepository
 import com.kumoh.lbs.gasstation.domain.GasStation
 import com.kumoh.lbs.gasstation.domain.StationType
-import com.kumoh.lbs.gasstation.repository.GasStationRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
+import org.apache.commons.csv.CSVFormat
+import org.apache.commons.csv.CSVRecord
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
 import java.io.File
 import java.nio.charset.Charset
 import java.security.MessageDigest
-import java.time.LocalDateTime
 
 private val logger = KotlinLogging.logger {}
 
-/**
- * OPINET CSV 파일에서 주유소 정보를 읽고,
- * 주소를 카카오 API로 좌표 변환하여 DB에 저장한다.
- *
- * 지원하는 CSV 컬럼 형식 (헤더 기준):
- *   지역, 상표, 주유소코드, 주유소명, 주소, 전화번호, 셀프여부, ...
- *
- * 인코딩: 기본 EUC-KR (OPINET 기본 인코딩). UTF-8 파일이면 charset 파라미터로 지정.
- */
 @Service
 class GasStationCsvBatchService(
     private val kakaoLocalClient: KakaoLocalClient,
-    private val gasStationRepository: GasStationRepository,
-    private val batchMetadataRepository: BatchMetadataRepository
+    private val batchWriter: GasStationBatchWriter
 ) {
     companion object {
         private const val BATCH_SIZE = 50
@@ -43,118 +30,100 @@ class GasStationCsvBatchService(
 
     fun importFromCsv(
         filePath: String,
-        charset: Charset = Charset.forName("EUC-KR")
+        charset: Charset = Charset.forName("EUC-KR"),
+        source: String = "manual"
     ): ImportResult {
         val file = File(filePath)
         require(file.exists()) { "CSV 파일을 찾을 수 없습니다: $filePath" }
 
         val fileHash = file.md5Hash()
-        val metadata = batchMetadataRepository.findById(file.name).orElse(null)
-
-        if (metadata?.lastHash == fileHash) {
+        if (batchWriter.isUnchanged(source, file.name, fileHash)) {
             logger.info { "파일 변경 없음 — 건너뜀: ${file.name}" }
             return ImportResult(skipped = true)
         }
 
         logger.info { "CSV 배치 시작: ${file.name}" }
-        var success = 0
-        var failed = 0
+        val result = processCsv(file, charset)
 
-        file.bufferedReader(charset).use { reader ->
-            val headerLine = reader.readLine()?.trimBom()
-                ?: return ImportResult(success = 0, failed = 0).also {
-                    logger.warn { "빈 파일: ${file.name}" }
-                }
-
-            val headers = headerLine.split(",").map { it.trim() }
-            val idx = ColumnIndex.from(headers)
-            logger.info { "헤더 인식: $headers" }
-
-            if (idx.stationId == -1) {
-                error("주유소코드 컬럼을 찾을 수 없습니다. 헤더: $headers\n지원 컬럼명: $STATION_ID_COLS")
-            }
-            if (idx.address == -1) {
-                error("주소 컬럼을 찾을 수 없습니다. 헤더: $headers\n지원 컬럼명: $ADDRESS_COLS")
-            }
-
-            val batch = mutableListOf<GasStation>()
-
-            reader.lineSequence()
-                .filter { it.isNotBlank() }
-                .forEach { line ->
-                    val cols = line.split(",").map { it.trim() }
-
-                    val stationId = cols.getOrNull(idx.stationId)?.takeIf { it.isNotBlank() }
-                    if (stationId == null) {
-                        logger.warn { "주유소코드 없는 행 건너뜀: $line" }
-                        failed++
-                        return@forEach
-                    }
-
-                    val address = cols.getOrNull(idx.address)?.takeIf { it.isNotBlank() }
-                    if (address == null) {
-                        logger.warn { "주소 없는 행 건너뜀 (id=$stationId)" }
-                        failed++
-                        return@forEach
-                    }
-
-                    val coords = kakaoLocalClient.geocode(address)
-                    if (coords == null) {
-                        failed++
-                        return@forEach
-                    }
-
-                    val (latitude, longitude) = coords
-                    val brandRaw = cols.getOrNull(idx.brand) ?: ""
-                    batch.add(
-                        GasStation(
-                            id = stationId,
-                            name = cols.getOrNull(idx.name)?.takeIf { it.isNotBlank() } ?: stationId,
-                            brand = BrandName.from(brandRaw),
-                            address = address,
-                            isSelf = cols.getOrNull(idx.isSelf)?.trim() == "Y" ||
-                                     cols.getOrNull(idx.isSelf)?.trim() == "셀프",
-                            type = StationType.GAS_STATION,
-                            latitude = latitude,
-                            longitude = longitude
-                        )
-                    )
-                    success++
-
-                    if (batch.size >= BATCH_SIZE) {
-                        saveBatch(batch)
-                        batch.clear()
-                    }
-                }
-
-            if (batch.isNotEmpty()) {
-                saveBatch(batch)
-            }
+        // 한 건이라도 성공했거나 완전히 빈 파일만 처리 완료로 기록
+        // 전부 실패(검증 or 지오코딩)면 다음 실행에서 재시도하도록 메타데이터 갱신 보류
+        if (result.success > 0 || result.failed == 0) {
+            batchWriter.upsertMetadata(source, file.name, fileHash)
+        } else {
+            logger.warn { "전체 실패 (성공: 0, 실패: ${result.failed}) — 메타데이터 갱신 보류 (다음 실행에서 재시도)" }
         }
 
-        updateMetadata(metadata, file.name, fileHash)
-        logger.info { "CSV 배치 완료 — 성공: $success, 실패: $failed" }
-
-        return ImportResult(success = success, failed = failed)
+        logger.info {
+            "CSV 배치 완료 — 성공: ${result.success}, " +
+            "검증실패: ${result.validationFailed}, 지오코딩실패: ${result.geocodeFailed}"
+        }
+        return result
     }
 
-    @Transactional
-    fun saveBatch(stations: List<GasStation>) {
-        gasStationRepository.saveAll(stations)
-        logger.debug { "${stations.size}건 저장 완료" }
-    }
+    private fun processCsv(file: File, charset: Charset): ImportResult {
+        var success = 0
+        var validationFailed = 0
+        var geocodeFailed = 0
+        val batch = mutableListOf<GasStation>()
 
-    @Transactional
-    fun updateMetadata(existing: BatchMetadata?, fileName: String, hash: String) {
-        val now = LocalDateTime.now()
-        batchMetadataRepository.save(
-            if (existing != null) {
-                existing.lastHash = hash
-                existing.updatedAt = now
-                existing
-            } else {
-                BatchMetadata(fileName = fileName, lastHash = hash, updatedAt = now)
+        file.bufferedReader(charset).use { reader ->
+            val csvParser = CSV_FORMAT.parse(reader)
+            val cols = ColumnNames.from(csvParser.headerNames)
+            logger.info { "헤더 인식: ${csvParser.headerNames.map { it.trimStart('\uFEFF') }}" }
+
+            csvParser.forEachIndexed { index, record ->
+                val rowNum = index + 2  // 1-based, header is row 1
+                when (val result = toGasStation(record, cols, rowNum)) {
+                    is RowResult.Success -> {
+                        batch += result.station
+                        success++
+                        if (batch.size >= BATCH_SIZE) {
+                            batchWriter.saveBatch(batch)
+                            batch.clear()
+                        }
+                    }
+                    is RowResult.ValidationFailure -> validationFailed++
+                    is RowResult.GeocodeFailed -> geocodeFailed++
+                }
             }
+
+            if (batch.isNotEmpty()) batchWriter.saveBatch(batch)
+        }
+
+        return ImportResult(success = success, validationFailed = validationFailed, geocodeFailed = geocodeFailed)
+    }
+
+    private fun toGasStation(record: CSVRecord, cols: ColumnNames, rowNum: Int): RowResult {
+        val stationId = record.get(cols.stationId).takeIf { it.isNotBlank() }
+            ?: return RowResult.ValidationFailure("주유소코드 없음")
+                .also { logger.warn { "[${rowNum}행] 주유소코드 없는 행 건너뜀" } }
+
+        val address = record.get(cols.address).takeIf { it.isNotBlank() }
+            ?: return RowResult.ValidationFailure("주소 없음")
+                .also { logger.warn { "[${rowNum}행] 주소 없는 행 건너뜀 (id=$stationId)" } }
+
+        val coords = try {
+            kakaoLocalClient.geocode(address)
+        } catch (e: Exception) {
+            logger.warn { "[${rowNum}행] 지오코딩 예외 (id=$stationId): ${e.message}" }
+            return RowResult.GeocodeFailed(stationId)
+        } ?: run {
+            logger.warn { "[${rowNum}행] 지오코딩 결과 없음 (id=$stationId, address=$address)" }
+            return RowResult.GeocodeFailed(stationId)
+        }
+
+        val (latitude, longitude) = coords
+        return RowResult.Success(
+            GasStation(
+                id = stationId,
+                name = cols.name?.let { record.get(it) }?.takeIf { it.isNotBlank() } ?: stationId,
+                brand = Brand.from(cols.brand?.let { record.get(it) } ?: "").displayName,
+                address = address,
+                isSelf = cols.isSelf?.let { record.get(it) }.let { it == "Y" || it == "셀프" },
+                type = StationType.GAS_STATION,
+                latitude = latitude,
+                longitude = longitude
+            )
         )
     }
 
@@ -170,55 +139,77 @@ class GasStationCsvBatchService(
         return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
-    private fun String.trimBom() = removePrefix("\uFEFF")
-
-    private data class ColumnIndex(
-        val stationId: Int,
-        val name: Int,
-        val brand: Int,
-        val address: Int,
-        val isSelf: Int
+    // BOM이 있는 경우 첫 번째 헤더명에 포함될 수 있어 trimStart('\uFEFF')로 비교
+    private data class ColumnNames(
+        val stationId: String,
+        val name: String?,
+        val brand: String?,
+        val address: String,
+        val isSelf: String?
     ) {
         companion object {
-            fun from(headers: List<String>): ColumnIndex {
+            fun from(headers: List<String>): ColumnNames {
+                val normalized = headers.map { it.trimStart('\uFEFF') }
                 fun find(candidates: Set<String>) =
-                    headers.indexOfFirst { it in candidates }
+                    headers.firstOrNull { it.trimStart('\uFEFF') in candidates }
 
-                return ColumnIndex(
-                    stationId = find(STATION_ID_COLS),
+                val stationId = find(STATION_ID_COLS)
+                    ?: error("주유소코드 컬럼을 찾을 수 없습니다. 헤더: $normalized\n지원 컬럼명: $STATION_ID_COLS")
+                val address = find(ADDRESS_COLS)
+                    ?: error("주소 컬럼을 찾을 수 없습니다. 헤더: $normalized\n지원 컬럼명: $ADDRESS_COLS")
+
+                return ColumnNames(
+                    stationId = stationId,
                     name = find(NAME_COLS),
                     brand = find(BRAND_COLS),
-                    address = find(ADDRESS_COLS),
+                    address = address,
                     isSelf = find(SELF_COLS)
                 )
             }
         }
     }
+
+    private sealed interface RowResult {
+        data class Success(val station: GasStation) : RowResult
+        data class ValidationFailure(val reason: String) : RowResult
+        data class GeocodeFailed(val stationId: String) : RowResult
+    }
 }
+
+private val CSV_FORMAT: CSVFormat = CSVFormat.DEFAULT.builder()
+    .setHeader()
+    .setSkipHeaderRecord(true)
+    .setTrim(true)
+    .setIgnoreEmptyLines(true)
+    .build()
 
 data class ImportResult(
     val success: Int = 0,
-    val failed: Int = 0,
+    val validationFailed: Int = 0,
+    val geocodeFailed: Int = 0,
     val skipped: Boolean = false
-)
+) {
+    val failed: Int get() = validationFailed + geocodeFailed
+}
 
-/**
- * OPINET 브랜드 코드 → 한국어 브랜드명 변환.
- * 이미 한국어인 경우 그대로 반환.
- */
-private object BrandName {
-    private val codeMap = mapOf(
-        "SKE" to "SK에너지",
-        "GSC" to "GS칼텍스",
-        "HDO" to "현대오일뱅크",
-        "SOL" to "S-OIL",
-        "RTO" to "자영",
-        "RTX" to "알뜰(자영)",
-        "NHO" to "NH에너지",
-        "ETC" to "기타",
-        "E1G" to "E1",
-        "SKG" to "SK가스"
-    )
+private enum class Brand(val displayName: String) {
+    SKE("SK에너지"),
+    GSC("GS칼텍스"),
+    HDO("현대오일뱅크"),
+    SOL("S-OIL"),
+    RTO("자영"),
+    RTX("알뜰(자영)"),
+    NHO("NH에너지"),
+    E1G("E1"),
+    SKG("SK가스"),
+    ETC("기타");
 
-    fun from(raw: String): String = codeMap[raw.trim().uppercase()] ?: raw.ifBlank { "기타" }
+    companion object {
+        fun from(raw: String): Brand {
+            val trimmed = raw.trim()
+            return entries.firstOrNull { it.name == trimmed.uppercase() }
+                ?: entries.firstOrNull { it.displayName == trimmed }
+                ?: ETC
+        }
+    }
 }

@@ -5,7 +5,6 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.io.File
-import java.nio.charset.Charset
 
 private val logger = KotlinLogging.logger {}
 
@@ -17,7 +16,6 @@ class OpinetCsvScheduler(
     companion object {
         private val TEMP_DIR = System.getProperty("java.io.tmpdir")
         private const val TEMP_FILE_NAME = "opinet_current_price.csv"
-        private val CSV_CHARSET = Charset.forName("MS949")
     }
 
     @Scheduled(cron = "0 0 2 * * *")
@@ -35,7 +33,7 @@ class OpinetCsvScheduler(
         tempFile.writeBytes(csvBytes)
         logger.info { "임시 파일 저장: ${tempFile.absolutePath} (${csvBytes.size} bytes)" }
 
-        val result = gasStationCsvBatchService.importFromCsv(tempFile.absolutePath, CSV_CHARSET)
+        val result = gasStationCsvBatchService.importFromCsv(tempFile.absolutePath, OpinetCsvDownloader.CSV_CHARSET, source = "opinet")
 
         when {
             result.skipped -> logger.info { "변경 없음 — DB 업데이트 건너뜀" }
