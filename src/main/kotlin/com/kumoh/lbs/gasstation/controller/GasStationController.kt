@@ -1,6 +1,6 @@
 package com.kumoh.lbs.gasstation.controller
 
-import com.kumoh.lbs.common.domain.Coordinate
+import com.kumoh.lbs.geo.Coordinate
 import com.kumoh.lbs.gasstation.domain.FuelType
 import com.kumoh.lbs.gasstation.service.GasStationRadiusRecommender
 import com.kumoh.lbs.gasstation.service.GasStationRouteRecommender

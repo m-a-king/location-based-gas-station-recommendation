@@ -1,6 +1,6 @@
 package com.kumoh.lbs.gasstation.domain
 
-import com.kumoh.lbs.common.domain.Coordinate
+import com.kumoh.lbs.geo.Coordinate
 import jakarta.persistence.*
 
 @Entity

@@ -1,8 +1,8 @@
 package com.kumoh.lbs.gasstation.service
 
-import com.kumoh.lbs.common.client.OpinetClient
-import com.kumoh.lbs.common.client.OpinetStation
-import com.kumoh.lbs.common.domain.Coordinate
+import com.kumoh.lbs.gasstation.client.OpinetClient
+import com.kumoh.lbs.gasstation.client.OpinetStation
+import com.kumoh.lbs.geo.Coordinate
 import com.kumoh.lbs.gasstation.domain.FuelType
 import com.kumoh.lbs.gasstation.domain.ScoredGasStation
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -87,18 +87,9 @@ class GasStationRadiusRecommenderTest {
         result.shouldBeEmpty()
     }
 
-    private fun opinetStation(
-        id: String,
-        name: String,
-        price: Int,
-        distance: Double
-    ) = OpinetStation(
-        stationId = id,
-        stationName = name,
-        brandCode = "SKE",
-        price = price,
-        distance = distance,
-        katecX = 100.0,
-        katecY = 200.0
-    )
+    private fun opinetStation(id: String, name: String, price: Int, distance: Double) =
+        OpinetStation(
+            stationId = id, stationName = name, brandCode = "SKE",
+            price = price, distance = distance, katecX = 100.0, katecY = 200.0
+        )
 }

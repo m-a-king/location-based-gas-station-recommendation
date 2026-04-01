@@ -1,10 +1,10 @@
 package com.kumoh.lbs.gasstation.service
 
-import com.kumoh.lbs.common.client.KakaoDirectionsClient
-import com.kumoh.lbs.common.client.OpinetClient
-import com.kumoh.lbs.common.client.OpinetClient.SortType
-import com.kumoh.lbs.common.domain.Coordinate
-import com.kumoh.lbs.common.util.GeoUtils
+import com.kumoh.lbs.geo.Coordinate
+import com.kumoh.lbs.geo.GeoUtils
+import com.kumoh.lbs.gasstation.client.KakaoDirectionsClient
+import com.kumoh.lbs.gasstation.client.OpinetClient
+import com.kumoh.lbs.gasstation.client.OpinetClient.SortType
 import com.kumoh.lbs.gasstation.domain.FuelType
 import com.kumoh.lbs.gasstation.domain.ScoredGasStation
 import io.github.oshai.kotlinlogging.KotlinLogging

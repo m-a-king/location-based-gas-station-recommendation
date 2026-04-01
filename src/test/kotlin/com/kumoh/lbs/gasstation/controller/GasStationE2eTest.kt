@@ -1,9 +1,9 @@
 package com.kumoh.lbs.gasstation.controller
 
-import com.kumoh.lbs.common.client.OpinetClient
-import com.kumoh.lbs.common.client.OpinetClient.SortType
-import com.kumoh.lbs.common.client.OpinetStation
-import com.kumoh.lbs.common.domain.Coordinate
+import com.kumoh.lbs.gasstation.client.OpinetClient
+import com.kumoh.lbs.gasstation.client.OpinetClient.SortType
+import com.kumoh.lbs.gasstation.client.OpinetStation
+import com.kumoh.lbs.geo.Coordinate
 import com.kumoh.lbs.gasstation.domain.FuelType
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
@@ -24,7 +24,6 @@ class GasStationE2eTest(
     @MockitoBean val opinetClient: OpinetClient
 ) {
 
-    // 좌표는 반경 추천 시 opinet에 전달되므로 katec 값을 직접 사용
     private val stationKatec = Coordinate.fromWgs84(Coordinate.Wgs84(38.0, 128.0)).katec
 
     private val cheapStation = OpinetStation(
@@ -49,11 +48,6 @@ class GasStationE2eTest(
     fun `WGS84 좌표로 주유소를 추천하면 점수순으로 정렬된 결과를 반환한다`() {
         whenever(opinetClient.searchByRadius(any(), eq(5000), eq(FuelType.GASOLINE), eq(SortType.PRICE)))
             .thenReturn(listOf(cheapStation, closeStation, expensiveStation))
-
-        // refuelLiters=40, fuelEfficiency=10
-        // cheapStation:  총주유비=1600*40=64000, 이동연료비=(1.0/10)*1600=160  → 64160
-        // closeStation:  총주유비=1800*40=72000, 이동연료비=(0.3/10)*1800=54   → 72054
-        // expensiveStation: 총주유비=2000*40=80000, 이동연료비=(2.0/10)*2000=400 → 80400
 
         mockMvc.get("/api/gas-stations/recommendations/radius") {
             param("latitude", "38.0")

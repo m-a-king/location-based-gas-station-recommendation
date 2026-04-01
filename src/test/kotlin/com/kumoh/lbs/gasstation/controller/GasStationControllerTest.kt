@@ -1,6 +1,6 @@
 package com.kumoh.lbs.gasstation.controller
 
-import com.kumoh.lbs.common.controller.GlobalExceptionHandler
+import com.kumoh.lbs.infra.GlobalExceptionHandler
 import com.kumoh.lbs.gasstation.service.GasStationRadiusRecommender
 import com.kumoh.lbs.gasstation.service.GasStationRouteRecommender
 import org.junit.jupiter.api.Test
