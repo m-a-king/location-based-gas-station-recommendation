@@ -43,3 +43,9 @@ out/
 *.env
 *.env.*
 .env*
+
+### Local-only tests (credentials hardcoded) ###
+src/test/kotlin/com/kumoh/lbs/client/OpinetCsvDownloaderLocalTest.kt
+
+### Claude Code local settings ###
+.claude/settings.local.json
