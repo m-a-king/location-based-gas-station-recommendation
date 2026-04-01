@@ -1,6 +1,7 @@
 package com.kumoh.lbs.config
 
 import com.kumoh.lbs.client.KakaoDirectionsClient
+import com.kumoh.lbs.client.KakaoLocalClient
 import com.kumoh.lbs.client.OpinetClient
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -34,6 +35,13 @@ class RestClientConfig {
     fun kakaoRestClient(): RestClient =
         RestClient.builder()
             .baseUrl(KakaoDirectionsClient.BASE_URL)
+            .requestFactory(createRequestFactory())
+            .build()
+
+    @Bean
+    fun kakaoLocalRestClient(): RestClient =
+        RestClient.builder()
+            .baseUrl(KakaoLocalClient.BASE_URL)
             .requestFactory(createRequestFactory())
             .build()
 
