@@ -39,31 +39,22 @@ class GasStationCsvBatchService(
         val fileHash = file.md5Hash()
         if (batchWriter.isUnchanged(source, file.name, fileHash)) {
             logger.info { "파일 변경 없음 — 건너뜀: ${file.name}" }
-            return ImportResult(skipped = true)
+            return ImportResult(unchanged = true)
         }
 
         logger.info { "CSV 배치 시작: ${file.name}" }
         val result = processCsv(file, charset)
 
-        // 한 건이라도 성공했거나 완전히 빈 파일만 처리 완료로 기록
-        // 전부 실패(검증 or 지오코딩)면 다음 실행에서 재시도하도록 메타데이터 갱신 보류
-        if (result.success > 0 || result.failed == 0) {
-            batchWriter.upsertMetadata(source, file.name, fileHash)
-        } else {
-            logger.warn { "전체 실패 (성공: 0, 실패: ${result.failed}) — 메타데이터 갱신 보류 (다음 실행에서 재시도)" }
-        }
+        batchWriter.upsertMetadata(source, file.name, fileHash)
 
-        logger.info {
-            "CSV 배치 완료 — 성공: ${result.success}, " +
-            "검증실패: ${result.validationFailed}, 지오코딩실패: ${result.geocodeFailed}"
-        }
+        logger.info { "CSV 배치 완료 — 저장: ${result.saved}, 불량행: ${result.badRows}, 좌표오류: ${result.geocodeErrors}" }
         return result
     }
 
     private fun processCsv(file: File, charset: Charset): ImportResult {
-        var success = 0
-        var validationFailed = 0
-        var geocodeFailed = 0
+        var saved = 0
+        var badRows = 0
+        var geocodeErrors = 0
         val batch = mutableListOf<GasStation>()
 
         file.bufferedReader(charset).use { reader ->
@@ -76,21 +67,21 @@ class GasStationCsvBatchService(
                 when (val result = toGasStation(record, cols, rowNum)) {
                     is RowResult.Success -> {
                         batch += result.station
-                        success++
+                        saved++
                         if (batch.size >= BATCH_SIZE) {
                             batchWriter.saveBatch(batch)
                             batch.clear()
                         }
                     }
-                    is RowResult.ValidationFailure -> validationFailed++
-                    is RowResult.GeocodeFailed -> geocodeFailed++
+                    is RowResult.ValidationFailure -> badRows++
+                    is RowResult.GeocodeFailed -> geocodeErrors++
                 }
             }
 
             if (batch.isNotEmpty()) batchWriter.saveBatch(batch)
         }
 
-        return ImportResult(success = success, validationFailed = validationFailed, geocodeFailed = geocodeFailed)
+        return ImportResult(saved = saved, badRows = badRows, geocodeErrors = geocodeErrors)
     }
 
     private fun toGasStation(record: CSVRecord, cols: ColumnNames, rowNum: Int): RowResult {
@@ -184,12 +175,12 @@ private val CSV_FORMAT: CSVFormat = CSVFormat.DEFAULT.builder()
     .build()
 
 data class ImportResult(
-    val success: Int = 0,
-    val validationFailed: Int = 0,
-    val geocodeFailed: Int = 0,
-    val skipped: Boolean = false
+    val saved: Int = 0,
+    val badRows: Int = 0,
+    val geocodeErrors: Int = 0,
+    val unchanged: Boolean = false
 ) {
-    val failed: Int get() = validationFailed + geocodeFailed
+    val dropped: Int get() = badRows + geocodeErrors
 }
 
 private enum class Brand(val displayName: String) {

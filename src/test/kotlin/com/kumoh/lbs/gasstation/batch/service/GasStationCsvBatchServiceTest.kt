@@ -69,21 +69,23 @@ class GasStationCsvBatchServiceTest {
     // ─── 전체 validation failure ──────────────────────────────────────────────
 
     @Test
-    fun `모든 행 주유소코드 누락 시 메타데이터 갱신 안 함`() {
+    fun `모든 행 검증 실패 시에도 메타데이터 기록`() {
         val path = csvFile("no_id_rows.csv", "$validHeader\n,주유소A,SKE,서울 강남,N")
 
-        service.importFromCsv(path, charset)
+        val result = service.importFromCsv(path, charset)
 
-        verify(batchWriter, never()).upsertMetadata(any(), any(), any())
+        result.badRows shouldBe 1
+        verify(batchWriter).upsertMetadata(any(), any(), any())
     }
 
     @Test
-    fun `모든 행 주소 누락 시 메타데이터 갱신 안 함`() {
+    fun `모든 행 주소 누락 시에도 메타데이터 기록`() {
         val path = csvFile("no_addr_rows.csv", "$validHeader\nST001,주유소A,SKE,,N")
 
-        service.importFromCsv(path, charset)
+        val result = service.importFromCsv(path, charset)
 
-        verify(batchWriter, never()).upsertMetadata(any(), any(), any())
+        result.badRows shouldBe 1
+        verify(batchWriter).upsertMetadata(any(), any(), any())
     }
 
     // ─── quoted comma ─────────────────────────────────────────────────────────
@@ -98,8 +100,8 @@ class GasStationCsvBatchServiceTest {
 
         val result = service.importFromCsv(path, charset)
 
-        result.success shouldBe 1
-        result.validationFailed shouldBe 0
+        result.saved shouldBe 1
+        result.badRows shouldBe 0
     }
 
     @Test
@@ -113,14 +115,14 @@ class GasStationCsvBatchServiceTest {
 
         val result = service.importFromCsv(path, charset)
 
-        result.success shouldBe 1
-        result.geocodeFailed shouldBe 0
+        result.saved shouldBe 1
+        result.geocodeErrors shouldBe 0
     }
 
     // ─── geocode 실패 격리 ────────────────────────────────────────────────────
 
     @Test
-    fun `geocode null 반환 시 geocodeFailed 카운트 증가하고 메타데이터 갱신 안 함`() {
+    fun `geocode null 반환 시 geocodeErrors 카운트 기록 및 메타데이터 저장`() {
         val path = csvFile("geocode_null.csv",
             "$validHeader\n${validRow("ST001")}"
         )
@@ -128,9 +130,9 @@ class GasStationCsvBatchServiceTest {
 
         val result = service.importFromCsv(path, charset)
 
-        result.geocodeFailed shouldBe 1
-        result.success shouldBe 0
-        verify(batchWriter, never()).upsertMetadata(any(), any(), any())
+        result.geocodeErrors shouldBe 1
+        result.saved shouldBe 0
+        verify(batchWriter).upsertMetadata(any(), any(), any())
     }
 
     @Test
@@ -142,9 +144,9 @@ class GasStationCsvBatchServiceTest {
 
         val result = service.importFromCsv(path, charset)
 
-        result.geocodeFailed shouldBe 2
-        result.success shouldBe 0
-        verify(batchWriter, never()).upsertMetadata(any(), any(), any())
+        result.geocodeErrors shouldBe 2
+        result.saved shouldBe 0
+        verify(batchWriter).upsertMetadata(any(), any(), any())
     }
 
     @Test
@@ -157,12 +159,12 @@ class GasStationCsvBatchServiceTest {
 
         val result = service.importFromCsv(path, charset)
 
-        result.success shouldBe 1
-        result.geocodeFailed shouldBe 1
+        result.saved shouldBe 1
+        result.geocodeErrors shouldBe 1
         verify(batchWriter).upsertMetadata(any(), any(), any())
     }
 
-    // ─── 재시도 정책 ──────────────────────────────────────────────────────────
+    // ─── 스킵 정책 ───────────────────────────────────────────────────────────
 
     @Test
     fun `이미 처리된 파일은 isUnchanged가 true면 스킵 반환`() {
@@ -171,7 +173,7 @@ class GasStationCsvBatchServiceTest {
 
         val result = service.importFromCsv(path, charset)
 
-        result.skipped shouldBe true
+        result.unchanged shouldBe true
         verify(batchWriter, never()).saveBatch(any())
     }
 
@@ -188,7 +190,7 @@ class GasStationCsvBatchServiceTest {
         val opinet = service.importFromCsv(path, charset, source = "opinet")
         val manual = service.importFromCsv(path, charset, source = "manual")
 
-        opinet.skipped shouldBe true
-        manual.success shouldBe 1
+        opinet.unchanged shouldBe true
+        manual.saved shouldBe 1
     }
 }

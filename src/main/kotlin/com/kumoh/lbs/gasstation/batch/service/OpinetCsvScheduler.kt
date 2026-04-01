@@ -36,8 +36,8 @@ class OpinetCsvScheduler(
         val result = gasStationCsvBatchService.importFromCsv(tempFile.absolutePath, OpinetCsvDownloader.CSV_CHARSET, source = "opinet")
 
         when {
-            result.skipped -> logger.info { "변경 없음 — DB 업데이트 건너뜀" }
-            else -> logger.info { "배치 완료 — 성공: ${result.success}, 실패: ${result.failed}" }
+            result.unchanged -> logger.info { "변경 없음 — DB 업데이트 건너뜀" }
+            else -> logger.info { "배치 완료 — 저장: ${result.saved}, 버려진행: ${result.dropped}" }
         }
     }
 }

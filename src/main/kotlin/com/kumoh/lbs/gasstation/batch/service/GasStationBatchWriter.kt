@@ -24,7 +24,8 @@ class GasStationBatchWriter(
     }
 
     fun isUnchanged(source: String, fileName: String, hash: String): Boolean =
-        batchMetadataRepository.findById(BatchMetadataId(source, fileName)).orElse(null)?.lastHash == hash
+        batchMetadataRepository.findById(BatchMetadataId(source, fileName))
+            .orElse(null)?.lastHash == hash
 
     @Transactional
     fun upsertMetadata(source: String, fileName: String, hash: String) {
