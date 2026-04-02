@@ -14,8 +14,8 @@ class OpinetCsvScheduler(
     private val gasStationCsvBatchService: GasStationCsvBatchService
 ) {
     companion object {
-        private val TEMP_DIR = System.getProperty("java.io.tmpdir")
-        private const val TEMP_FILE_NAME = "opinet_current_price.csv"
+        private val WORK_DIR = System.getProperty("java.io.tmpdir")
+        private const val CSV_FILE_NAME = "opinet_current_price.csv"
     }
 
     @Scheduled(cron = "0 0 2 * * *")
@@ -29,11 +29,11 @@ class OpinetCsvScheduler(
             return
         }
 
-        val tempFile = File(TEMP_DIR, TEMP_FILE_NAME)
-        tempFile.writeBytes(csvBytes)
-        logger.info { "임시 파일 저장: ${tempFile.absolutePath} (${csvBytes.size} bytes)" }
+        val csvFile = File(WORK_DIR, CSV_FILE_NAME)
+        csvFile.writeBytes(csvBytes)
+        logger.info { "CSV 저장: ${csvFile.absolutePath} (${csvBytes.size} bytes)" }
 
-        val result = gasStationCsvBatchService.importFromCsv(tempFile.absolutePath, OpinetCsvDownloader.CSV_CHARSET, source = "opinet")
+        val result = gasStationCsvBatchService.importFromCsv(csvFile.absolutePath, OpinetCsvDownloader.CSV_CHARSET)
 
         when {
             result.unchanged -> logger.info { "변경 없음 — DB 업데이트 건너뜀" }

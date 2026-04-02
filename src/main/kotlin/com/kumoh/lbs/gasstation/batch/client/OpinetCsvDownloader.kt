@@ -45,6 +45,12 @@ class OpinetCsvDownloader(
         private const val RSA_GEN_URL = "$BASE_URL/rsaGen.do"
         private const val DO_LOGIN_URL = "$BASE_URL/doLogin.do"
 
+        private const val DEFAULT_TIMEOUT_MS = 15_000
+        private const val DOWNLOAD_READ_TIMEOUT_MS = 60_000
+        private const val CURL_MAX_TIME_SECONDS = 30
+        private const val USER_AGENT = "Mozilla/5.0"
+        private const val FORM_CONTENT_TYPE = "application/x-www-form-urlencoded"
+
         private val NETFUNNEL_KEY_REGEX = Regex("key=([A-Fa-f0-9]+)")
         private val RSA_MODULE_REGEX = Regex("\"publicKeyModule\"\\s*:\\s*\"([^\"]+)\"")
         private val RSA_EXPONENT_REGEX = Regex("\"publicKeyExponent\"\\s*:\\s*\"([^\"]+)\"")
@@ -58,24 +64,24 @@ class OpinetCsvDownloader(
     }
 
     private fun visitDownloadPage(sessionId: String) {
-        val conn = openGet(DOWNLOAD_PAGE_URL, referer = BASE_URL)
-        conn.setRequestProperty("Cookie", "JSESSIONID=$sessionId")
-        conn.inputStream.readBytes()
-        conn.disconnect()
+        val connection = openGet(DOWNLOAD_PAGE_URL, referer = BASE_URL)
+        connection.setRequestProperty("Cookie", "JSESSIONID=$sessionId")
+        connection.inputStream.readBytes()
+        connection.disconnect()
     }
 
     private fun login(): String {
         val (wmonId, preSessionId) = getInitialSession()
         val (module, exponent) = fetchRsaKey(preSessionId, wmonId)
-        val encryptedPwd = rsaEncrypt(properties.password, module, exponent)
-        return doLogin(properties.userId, encryptedPwd, preSessionId, wmonId)
+        val encryptedPassword = rsaEncrypt(properties.password, module, exponent)
+        return doLogin(properties.userId, encryptedPassword, preSessionId, wmonId)
     }
 
     private fun getInitialSession(): Pair<String, String> {
-        val conn = openGet(LOGIN_VIEW_URL, referer = BASE_URL)
-        val cookies = conn.getHeaderFields()["Set-Cookie"] ?: emptyList()
-        conn.inputStream.readBytes()
-        conn.disconnect()
+        val connection = openGet(LOGIN_VIEW_URL, referer = BASE_URL)
+        val cookies = connection.getHeaderFields()["Set-Cookie"] ?: emptyList()
+        connection.inputStream.readBytes()
+        connection.disconnect()
 
         val wmonId = cookies.find { it.startsWith("WMONID=") }
             ?.substringAfter("WMONID=")?.substringBefore(";") ?: ""
@@ -87,11 +93,11 @@ class OpinetCsvDownloader(
     }
 
     private fun fetchRsaKey(sessionId: String, wmonId: String): Pair<String, String> {
-        val conn = openGet(RSA_GEN_URL, referer = LOGIN_VIEW_URL)
-        conn.setRequestProperty("Cookie", cookieHeader(sessionId, wmonId))
+        val connection = openGet(RSA_GEN_URL, referer = LOGIN_VIEW_URL)
+        connection.setRequestProperty("Cookie", cookieHeader(sessionId, wmonId))
 
-        val response = conn.inputStream.bufferedReader().readText()
-        conn.disconnect()
+        val response = connection.inputStream.bufferedReader().readText()
+        connection.disconnect()
         logger.debug { "RSA 키 응답: $response" }
 
         val module = RSA_MODULE_REGEX.find(response)?.groupValues?.get(1)
@@ -112,27 +118,27 @@ class OpinetCsvDownloader(
             .joinToString("") { "%02x".format(it) }
     }
 
-    private fun doLogin(userId: String, encryptedPwd: String, sessionId: String, wmonId: String): String {
-        val body = listOf("USR_ID" to userId, "PWD" to encryptedPwd, "REMEMBER_ME_YN" to "N")
-            .joinToString("&") { (k, v) -> "${enc(k)}=${enc(v)}" }
+    private fun doLogin(userId: String, encryptedPassword: String, sessionId: String, wmonId: String): String {
+        val body = listOf("USR_ID" to userId, "PWD" to encryptedPassword, "REMEMBER_ME_YN" to "N")
+            .joinToString("&") { (k, v) -> "${urlEncode(k)}=${urlEncode(v)}" }
 
-        val conn = URI(DO_LOGIN_URL).toURL().openConnection() as HttpURLConnection
-        conn.requestMethod = "POST"
-        conn.doOutput = true
-        conn.instanceFollowRedirects = false
-        conn.connectTimeout = 15_000
-        conn.readTimeout = 15_000
-        conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
-        conn.setRequestProperty("Referer", LOGIN_VIEW_URL)
-        conn.setRequestProperty("Origin", BASE_URL)
-        conn.setRequestProperty("User-Agent", "Mozilla/5.0")
-        conn.setRequestProperty("Cookie", cookieHeader(sessionId, wmonId))
-        conn.outputStream.use { it.write(body.toByteArray()) }
+        val connection = URI(DO_LOGIN_URL).toURL().openConnection() as HttpURLConnection
+        connection.requestMethod = "POST"
+        connection.doOutput = true
+        connection.instanceFollowRedirects = false
+        connection.connectTimeout = DEFAULT_TIMEOUT_MS
+        connection.readTimeout = DEFAULT_TIMEOUT_MS
+        connection.setRequestProperty("Content-Type", FORM_CONTENT_TYPE)
+        connection.setRequestProperty("Referer", LOGIN_VIEW_URL)
+        connection.setRequestProperty("Origin", BASE_URL)
+        connection.setRequestProperty("User-Agent", USER_AGENT)
+        connection.setRequestProperty("Cookie", cookieHeader(sessionId, wmonId))
+        connection.outputStream.use { it.write(body.toByteArray()) }
 
-        val newCookies = conn.getHeaderFields()["Set-Cookie"] ?: emptyList()
-        val responseCode = conn.responseCode
-        conn.inputStream.readBytes()
-        conn.disconnect()
+        val newCookies = connection.getHeaderFields()["Set-Cookie"] ?: emptyList()
+        val responseCode = connection.responseCode
+        connection.inputStream.readBytes()
+        connection.disconnect()
 
         val newSessionId = newCookies.find { it.startsWith("JSESSIONID=") }
             ?.substringAfter("JSESSIONID=")?.substringBefore(";")
@@ -164,11 +170,11 @@ class OpinetCsvDownloader(
     }
 
     private fun fetchViaCurl(url: String): String {
-        val proc = ProcessBuilder("curl", "-s", "--max-time", "30", "-A", "Mozilla/5.0", url)
+        val process = ProcessBuilder("curl", "-s", "--max-time", "$CURL_MAX_TIME_SECONDS", "-A", USER_AGENT, url)
             .redirectErrorStream(true)
             .start()
-        val output = proc.inputStream.bufferedReader().readText()
-        val exit = proc.waitFor()
+        val output = process.inputStream.bufferedReader().readText()
+        val exit = process.waitFor()
         check(exit == 0) { "curl 실패 (exit=$exit): $output" }
         return output
     }
@@ -192,38 +198,38 @@ class OpinetCsvDownloader(
             "END_DT"        to today,
             "SIDO_CD"       to "",
             "SIGUN_CD"      to ""
-        ).joinToString("&") { (k, v) -> "${enc(k)}=${enc(v)}" }
+        ).joinToString("&") { (k, v) -> "${urlEncode(k)}=${urlEncode(v)}" }
 
-        val conn = URI(DOWNLOAD_URL).toURL().openConnection() as HttpURLConnection
-        conn.requestMethod = "POST"
-        conn.doOutput = true
-        conn.connectTimeout = 10_000
-        conn.readTimeout = 60_000
-        conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
-        conn.setRequestProperty("Referer", "$BASE_URL/user/opdown/opDownload.do")
-        conn.setRequestProperty("Origin", BASE_URL)
-        conn.setRequestProperty("User-Agent", "Mozilla/5.0")
-        conn.setRequestProperty("Cookie", "JSESSIONID=$sessionId")
-        conn.outputStream.use { it.write(body.toByteArray()) }
+        val connection = URI(DOWNLOAD_URL).toURL().openConnection() as HttpURLConnection
+        connection.requestMethod = "POST"
+        connection.doOutput = true
+        connection.connectTimeout = DEFAULT_TIMEOUT_MS
+        connection.readTimeout = DOWNLOAD_READ_TIMEOUT_MS
+        connection.setRequestProperty("Content-Type", FORM_CONTENT_TYPE)
+        connection.setRequestProperty("Referer", "$BASE_URL/user/opdown/opDownload.do")
+        connection.setRequestProperty("Origin", BASE_URL)
+        connection.setRequestProperty("User-Agent", USER_AGENT)
+        connection.setRequestProperty("Cookie", "JSESSIONID=$sessionId")
+        connection.outputStream.use { it.write(body.toByteArray()) }
 
-        val bytes = conn.inputStream.readBytes()
-        conn.disconnect()
+        val bytes = connection.inputStream.readBytes()
+        connection.disconnect()
         logger.info { "OPINET CSV 다운로드 완료: ${bytes.size} bytes" }
         return bytes
     }
 
     private fun openGet(url: String, referer: String): HttpURLConnection {
-        val conn = URI(url).toURL().openConnection() as HttpURLConnection
-        conn.connectTimeout = 15_000
-        conn.readTimeout = 15_000
-        conn.setRequestProperty("Referer", referer)
-        conn.setRequestProperty("User-Agent", "Mozilla/5.0")
-        return conn
+        val connection = URI(url).toURL().openConnection() as HttpURLConnection
+        connection.connectTimeout = DEFAULT_TIMEOUT_MS
+        connection.readTimeout = DEFAULT_TIMEOUT_MS
+        connection.setRequestProperty("Referer", referer)
+        connection.setRequestProperty("User-Agent", USER_AGENT)
+        return connection
     }
 
     private fun cookieHeader(sessionId: String, wmonId: String) =
         if (wmonId.isNotEmpty()) "JSESSIONID=$sessionId; WMONID=$wmonId"
         else "JSESSIONID=$sessionId"
 
-    private fun enc(value: String) = URLEncoder.encode(value, Charsets.UTF_8)
+    private fun urlEncode(value: String) = URLEncoder.encode(value, Charsets.UTF_8)
 }

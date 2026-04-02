@@ -1,6 +1,8 @@
 package com.kumoh.lbs.gasstation.batch.service
 
 import com.kumoh.lbs.gasstation.batch.client.KakaoLocalClient
+import com.kumoh.lbs.gasstation.repository.GasStationRepository
+import com.kumoh.lbs.geo.Coordinate
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -10,7 +12,6 @@ import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
-import org.mockito.kotlin.eq
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -22,6 +23,7 @@ class GasStationCsvBatchServiceTest {
 
     @Mock lateinit var kakaoLocalClient: KakaoLocalClient
     @Mock lateinit var batchWriter: GasStationBatchWriter
+    @Mock lateinit var gasStationRepository: GasStationRepository
 
     @InjectMocks lateinit var service: GasStationCsvBatchService
 
@@ -52,7 +54,7 @@ class GasStationCsvBatchServiceTest {
             service.importFromCsv(path, charset)
         }
 
-        verify(batchWriter, never()).upsertMetadata(any(), any(), any())
+        verify(batchWriter, never()).saveMetadata(any(), any())
     }
 
     @Test
@@ -63,7 +65,7 @@ class GasStationCsvBatchServiceTest {
             service.importFromCsv(path, charset)
         }
 
-        verify(batchWriter, never()).upsertMetadata(any(), any(), any())
+        verify(batchWriter, never()).saveMetadata(any(), any())
     }
 
     // ─── 전체 validation failure ──────────────────────────────────────────────
@@ -75,7 +77,7 @@ class GasStationCsvBatchServiceTest {
         val result = service.importFromCsv(path, charset)
 
         result.badRows shouldBe 1
-        verify(batchWriter).upsertMetadata(any(), any(), any())
+        verify(batchWriter).saveMetadata(any(), any())
     }
 
     @Test
@@ -85,7 +87,7 @@ class GasStationCsvBatchServiceTest {
         val result = service.importFromCsv(path, charset)
 
         result.badRows shouldBe 1
-        verify(batchWriter).upsertMetadata(any(), any(), any())
+        verify(batchWriter).saveMetadata(any(), any())
     }
 
     // ─── quoted comma ─────────────────────────────────────────────────────────
@@ -95,8 +97,8 @@ class GasStationCsvBatchServiceTest {
         val path = csvFile("quoted.csv",
             "$validHeader\nST001,테스트,SKE,\"서울시 강남구, 테헤란로 1\",N"
         )
-        whenever(kakaoLocalClient.geocode("서울시 강남구, 테헤란로 1"))
-            .thenReturn(Pair(37.5, 127.0))
+        whenever(kakaoLocalClient.resolveCoordinates("서울시 강남구, 테헤란로 1"))
+            .thenReturn(Coordinate.Wgs84(37.5, 127.0))
 
         val result = service.importFromCsv(path, charset)
 
@@ -111,7 +113,7 @@ class GasStationCsvBatchServiceTest {
         val path = csvFile("quoted_verify.csv",
             "$validHeader\nST002,주유소B,GSC,\"$quotedAddress\",Y"
         )
-        whenever(kakaoLocalClient.geocode(quotedAddress)).thenReturn(Pair(37.5, 126.9))
+        whenever(kakaoLocalClient.resolveCoordinates(quotedAddress)).thenReturn(Coordinate.Wgs84(37.5, 126.9))
 
         val result = service.importFromCsv(path, charset)
 
@@ -126,13 +128,13 @@ class GasStationCsvBatchServiceTest {
         val path = csvFile("geocode_null.csv",
             "$validHeader\n${validRow("ST001")}"
         )
-        whenever(kakaoLocalClient.geocode(any())).thenReturn(null)
+        whenever(kakaoLocalClient.resolveCoordinates(any())).thenReturn(null)
 
         val result = service.importFromCsv(path, charset)
 
         result.geocodeErrors shouldBe 1
         result.saved shouldBe 0
-        verify(batchWriter).upsertMetadata(any(), any(), any())
+        verify(batchWriter).saveMetadata(any(), any())
     }
 
     @Test
@@ -140,13 +142,13 @@ class GasStationCsvBatchServiceTest {
         val path = csvFile("geocode_ex.csv",
             "$validHeader\n${validRow("ST001")}\n${validRow("ST002")}"
         )
-        whenever(kakaoLocalClient.geocode(any())).thenThrow(RuntimeException("API timeout"))
+        whenever(kakaoLocalClient.resolveCoordinates(any())).thenThrow(RuntimeException("API timeout"))
 
         val result = service.importFromCsv(path, charset)
 
         result.geocodeErrors shouldBe 2
         result.saved shouldBe 0
-        verify(batchWriter).upsertMetadata(any(), any(), any())
+        verify(batchWriter).saveMetadata(any(), any())
     }
 
     @Test
@@ -154,14 +156,14 @@ class GasStationCsvBatchServiceTest {
         val path = csvFile("partial.csv",
             "$validHeader\n${validRow("ST001")}\n${validRow("ST002", "주소없음")}"
         )
-        whenever(kakaoLocalClient.geocode("서울시 강남구 테헤란로 1")).thenReturn(Pair(37.5, 127.0))
-        whenever(kakaoLocalClient.geocode("주소없음")).thenReturn(null)
+        whenever(kakaoLocalClient.resolveCoordinates("서울시 강남구 테헤란로 1")).thenReturn(Coordinate.Wgs84(37.5, 127.0))
+        whenever(kakaoLocalClient.resolveCoordinates("주소없음")).thenReturn(null)
 
         val result = service.importFromCsv(path, charset)
 
         result.saved shouldBe 1
         result.geocodeErrors shouldBe 1
-        verify(batchWriter).upsertMetadata(any(), any(), any())
+        verify(batchWriter).saveMetadata(any(), any())
     }
 
     // ─── 스킵 정책 ───────────────────────────────────────────────────────────
@@ -169,28 +171,11 @@ class GasStationCsvBatchServiceTest {
     @Test
     fun `이미 처리된 파일은 isUnchanged가 true면 스킵 반환`() {
         val path = csvFile("processed.csv", "$validHeader\n${validRow("ST001")}")
-        whenever(batchWriter.isUnchanged(any(), any(), any())).thenReturn(true)
+        whenever(batchWriter.isUnchanged(any(), any())).thenReturn(true)
 
         val result = service.importFromCsv(path, charset)
 
         result.unchanged shouldBe true
         verify(batchWriter, never()).saveBatch(any())
-    }
-
-    // ─── source 키 분리 ───────────────────────────────────────────────────────
-
-    @Test
-    fun `source가 다르면 메타데이터 키도 달라져 같은 파일명이 독립적으로 처리된다`() {
-        val path = csvFile("same_name.csv", "$validHeader\n${validRow("ST001")}")
-        whenever(kakaoLocalClient.geocode(any())).thenReturn(Pair(37.5, 127.0))
-        // source "opinet"은 unchanged, "manual"은 새로 처리
-        whenever(batchWriter.isUnchanged(eq("opinet"), eq("same_name.csv"), any())).thenReturn(true)
-        whenever(batchWriter.isUnchanged(eq("manual"), eq("same_name.csv"), any())).thenReturn(false)
-
-        val opinet = service.importFromCsv(path, charset, source = "opinet")
-        val manual = service.importFromCsv(path, charset, source = "manual")
-
-        opinet.unchanged shouldBe true
-        manual.saved shouldBe 1
     }
 }

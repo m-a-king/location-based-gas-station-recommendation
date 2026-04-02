@@ -1,6 +1,7 @@
 package com.kumoh.lbs.gasstation.batch.client
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.kumoh.lbs.geo.Coordinate
 import com.kumoh.lbs.infra.KakaoProperties
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.core.ParameterizedTypeReference
@@ -16,13 +17,10 @@ class KakaoLocalClient(
 ) {
     companion object {
         const val BASE_URL = "https://dapi.kakao.com"
+        private const val KAKAO_AUTH_PREFIX = "KakaoAK "
     }
 
-    /**
-     * 주소를 WGS84 좌표(위도, 경도)로 변환한다.
-     * 변환 실패 시 null 반환.
-     */
-    fun geocode(address: String): Pair<Double, Double>? {
+    fun resolveCoordinates(address: String): Coordinate.Wgs84? {
         return try {
             val response = kakaoLocalRestClient.get()
                 .uri { builder ->
@@ -30,7 +28,7 @@ class KakaoLocalClient(
                         .queryParam("query", address)
                         .build()
                 }
-                .header("Authorization", "KakaoAK ${properties.apiKey}")
+                .header("Authorization", "$KAKAO_AUTH_PREFIX${properties.apiKey}")
                 .retrieve()
                 .body(object : ParameterizedTypeReference<KakaoAddressResponse>() {})
 
@@ -47,7 +45,7 @@ class KakaoLocalClient(
                 return null
             }
 
-            latitude to longitude
+            Coordinate.Wgs84(latitude, longitude)
         } catch (e: Exception) {
             logger.warn { "카카오 로컬 API 호출 실패 (address=$address): ${e.message}" }
             null
