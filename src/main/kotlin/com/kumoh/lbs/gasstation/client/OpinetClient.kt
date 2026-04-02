@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.kumoh.lbs.geo.Coordinate
 import com.kumoh.lbs.gasstation.domain.FuelType
 import com.kumoh.lbs.gasstation.domain.GasStation
+import com.kumoh.lbs.gasstation.domain.NearbyStation
 import com.kumoh.lbs.infra.ExternalApiException
 import com.kumoh.lbs.infra.OpinetProperties
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -34,7 +35,7 @@ class OpinetClient(
         radius: Int,
         fuelType: FuelType,
         sort: SortType
-    ): List<OpinetStation> {
+    ): List<NearbyStation> {
         return try {
             val response = opinetRestClient.get()
                 .uri {
@@ -52,7 +53,7 @@ class OpinetClient(
                 .body(object : ParameterizedTypeReference<OpinetResponse>() {})
                 ?: throw ExternalApiException("OPINET API가 예상치 못한 응답을 반환했습니다.")
 
-            response.result.stations
+            response.result.stations.map { it.toNearbyStation() }
         } catch (e: ExternalApiException) {
             throw e
         } catch (e: Exception) {
@@ -62,15 +63,15 @@ class OpinetClient(
     }
 }
 
-data class OpinetResponse(
+private data class OpinetResponse(
     @JsonProperty("RESULT") val result: OpinetResult
 )
 
-data class OpinetResult(
+private data class OpinetResult(
     @JsonProperty("OIL") val stations: List<OpinetStation>
 )
 
-data class OpinetStation(
+private data class OpinetStation(
     @JsonProperty("UNI_ID") val stationId: String,
     @JsonProperty("OS_NM") val stationName: String,
     @JsonProperty("POLL_DIV_CD") val brandCode: String,
@@ -79,14 +80,18 @@ data class OpinetStation(
     @JsonProperty("GIS_X_COOR") val katecX: Double,
     @JsonProperty("GIS_Y_COOR") val katecY: Double
 ) {
-    fun toGasStation(): GasStation {
+    fun toNearbyStation(): NearbyStation {
         val wgs84 = Coordinate.fromKatec(Coordinate.Katec(katecX, katecY)).wgs84
-        return GasStation(
-            id = stationId,
-            name = stationName,
-            brand = brandCode,
-            latitude = wgs84.latitude,
-            longitude = wgs84.longitude
+        return NearbyStation(
+            station = GasStation(
+                id = stationId,
+                name = stationName,
+                brand = brandCode,
+                latitude = wgs84.latitude,
+                longitude = wgs84.longitude
+            ),
+            price = price,
+            distanceMeters = distance
         )
     }
 }

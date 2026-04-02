@@ -1,9 +1,10 @@
 package com.kumoh.lbs.gasstation.service
 
 import com.kumoh.lbs.gasstation.client.OpinetClient
-import com.kumoh.lbs.gasstation.client.OpinetStation
 import com.kumoh.lbs.geo.Coordinate
 import com.kumoh.lbs.gasstation.domain.FuelType
+import com.kumoh.lbs.gasstation.domain.GasStation
+import com.kumoh.lbs.gasstation.domain.NearbyStation
 import com.kumoh.lbs.gasstation.domain.ScoredGasStation
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
@@ -41,9 +42,9 @@ class GasStationRadiusRecommenderTest {
     @Test
     fun `가격이 가장 싼 주유소가 1위로 반환된다`() {
         val stations = listOf(
-            opinetStation(id = "1", name = "비싼주유소", price = 1800, distance = 100.0),
-            opinetStation(id = "2", name = "싼주유소", price = 1500, distance = 100.0),
-            opinetStation(id = "3", name = "중간주유소", price = 1650, distance = 100.0)
+            nearbyStation(id = "1", name = "비싼주유소", price = 1800, distanceMeters = 100.0),
+            nearbyStation(id = "2", name = "싼주유소", price = 1500, distanceMeters = 100.0),
+            nearbyStation(id = "3", name = "중간주유소", price = 1650, distanceMeters = 100.0)
         )
         whenever(opinetClient.searchByRadius(any(), any(), any(), any())).thenReturn(stations)
 
@@ -56,8 +57,8 @@ class GasStationRadiusRecommenderTest {
     @Test
     fun `거리가 가까울수록 더 좋은 점수를 받는다`() {
         val stations = listOf(
-            opinetStation(id = "1", name = "먼주유소", price = 1600, distance = 3000.0),
-            opinetStation(id = "2", name = "가까운주유소", price = 1600, distance = 500.0)
+            nearbyStation(id = "1", name = "먼주유소", price = 1600, distanceMeters = 3000.0),
+            nearbyStation(id = "2", name = "가까운주유소", price = 1600, distanceMeters = 500.0)
         )
         whenever(opinetClient.searchByRadius(any(), any(), any(), any())).thenReturn(stations)
 
@@ -69,7 +70,7 @@ class GasStationRadiusRecommenderTest {
     @Test
     fun `limit만큼만 결과를 반환한다`() {
         val stations = (1..10).map {
-            opinetStation(id = "$it", name = "주유소$it", price = 1500 + it * 10, distance = 100.0)
+            nearbyStation(id = "$it", name = "주유소$it", price = 1500 + it * 10, distanceMeters = 100.0)
         }
         whenever(opinetClient.searchByRadius(any(), any(), any(), any())).thenReturn(stations)
 
@@ -87,9 +88,10 @@ class GasStationRadiusRecommenderTest {
         result.shouldBeEmpty()
     }
 
-    private fun opinetStation(id: String, name: String, price: Int, distance: Double) =
-        OpinetStation(
-            stationId = id, stationName = name, brandCode = "SKE",
-            price = price, distance = distance, katecX = 100.0, katecY = 200.0
+    private fun nearbyStation(id: String, name: String, price: Int, distanceMeters: Double) =
+        NearbyStation(
+            station = GasStation(id = id, name = name, brand = "SKE", latitude = 37.0, longitude = 127.0),
+            price = price,
+            distanceMeters = distanceMeters
         )
 }

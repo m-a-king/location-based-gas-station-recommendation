@@ -44,16 +44,15 @@ class GasStationRouteRecommender(
 
         val uniqueStations = samplePoints
             .flatMap { opinetClient.searchByRadius(it, SEARCH_RADIUS, fuelType, SortType.PRICE) }
-            .distinctBy { it.stationId }
+            .distinctBy { it.station.id }
 
         logger.info { "경로 주변 주유소: ${uniqueStations.size}건 (중복 제거 후)" }
 
         // STEP 3: 1차 필터 (직선거리 기반, 상위 limit × 3)
         val preliminaryCandidates = uniqueStations
-            .map { station ->
-                val stationEntity = station.toGasStation()
-                val detourDistance = calculateDetourDistance(stationEntity.coordinate, route.polyline)
-                ScoredGasStation.ofWithDetour(stationEntity, station.price, station.distance, refuelLiters, fuelEfficiency, detourDistance)
+            .map { nearby ->
+                val detourDistance = calculateDetourDistance(nearby.station.coordinate, route.polyline)
+                ScoredGasStation.ofWithDetour(nearby.station, nearby.price, nearby.distanceMeters, refuelLiters, fuelEfficiency, detourDistance)
             }
             .sortedBy { it.score }
             .take(limit * PRELIMINARY_FILTER_MULTIPLIER)

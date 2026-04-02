@@ -48,16 +48,16 @@ class KakaoLocalClient(
     }
 }
 
-data class KakaoAddressResponse(
+private data class KakaoAddressResponse(
     @JsonProperty("meta") val meta: KakaoAddressMeta?,
     @JsonProperty("documents") val documents: List<KakaoAddressDocument>?
 )
 
-data class KakaoAddressMeta(
+private data class KakaoAddressMeta(
     @JsonProperty("total_count") val totalCount: Int?
 )
 
-data class KakaoAddressDocument(
+private data class KakaoAddressDocument(
     @JsonProperty("address_name") val addressName: String?,
     @JsonProperty("address_type") val addressType: String?,
     @JsonProperty("x") val x: String,  // 경도 (longitude)

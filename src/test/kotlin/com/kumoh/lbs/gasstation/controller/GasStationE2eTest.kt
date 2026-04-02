@@ -2,9 +2,9 @@ package com.kumoh.lbs.gasstation.controller
 
 import com.kumoh.lbs.gasstation.client.OpinetClient
 import com.kumoh.lbs.gasstation.client.OpinetClient.SortType
-import com.kumoh.lbs.gasstation.client.OpinetStation
-import com.kumoh.lbs.geo.Coordinate
 import com.kumoh.lbs.gasstation.domain.FuelType
+import com.kumoh.lbs.gasstation.domain.GasStation
+import com.kumoh.lbs.gasstation.domain.NearbyStation
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
@@ -24,24 +24,19 @@ class GasStationE2eTest(
     @MockitoBean val opinetClient: OpinetClient
 ) {
 
-    private val stationKatec = Coordinate.fromWgs84(Coordinate.Wgs84(38.0, 128.0)).katec
-
-    private val cheapStation = OpinetStation(
-        stationId = "ST001", stationName = "싼주유소", brandCode = "SKE",
-        price = 1600, distance = 1000.0,
-        katecX = stationKatec.x, katecY = stationKatec.y
+    private val cheapStation = NearbyStation(
+        station = GasStation(id = "ST001", name = "싼주유소", brand = "SKE", latitude = 38.0, longitude = 128.0),
+        price = 1600, distanceMeters = 1000.0
     )
 
-    private val closeStation = OpinetStation(
-        stationId = "ST002", stationName = "가까운주유소", brandCode = "GSC",
-        price = 1800, distance = 300.0,
-        katecX = stationKatec.x, katecY = stationKatec.y
+    private val closeStation = NearbyStation(
+        station = GasStation(id = "ST002", name = "가까운주유소", brand = "GSC", latitude = 38.0, longitude = 128.0),
+        price = 1800, distanceMeters = 300.0
     )
 
-    private val expensiveStation = OpinetStation(
-        stationId = "ST003", stationName = "비싼주유소", brandCode = "HDO",
-        price = 2000, distance = 2000.0,
-        katecX = stationKatec.x, katecY = stationKatec.y
+    private val expensiveStation = NearbyStation(
+        station = GasStation(id = "ST003", name = "비싼주유소", brand = "HDO", latitude = 38.0, longitude = 128.0),
+        price = 2000, distanceMeters = 2000.0
     )
 
     @Test

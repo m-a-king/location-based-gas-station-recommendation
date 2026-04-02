@@ -2,8 +2,9 @@ package com.kumoh.lbs.gasstation.controller
 
 import com.kumoh.lbs.gasstation.client.KakaoDirectionsClient
 import com.kumoh.lbs.gasstation.client.OpinetClient
-import com.kumoh.lbs.gasstation.client.OpinetStation
 import com.kumoh.lbs.geo.Coordinate
+import com.kumoh.lbs.gasstation.domain.GasStation
+import com.kumoh.lbs.gasstation.domain.NearbyStation
 import com.kumoh.lbs.gasstation.domain.Route
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
@@ -28,19 +29,19 @@ class RouteGasStationE2eTest(
 
     private val origin = Coordinate.fromWgs84(Coordinate.Wgs84(37.0, 127.0))
     private val destination = Coordinate.fromWgs84(Coordinate.Wgs84(37.1, 127.1))
-    private val baseRoute = route(distance = 15000)
+    private val baseRoute = route(distanceMeters = 15000)
 
-    private val onRouteStation = opinetStation(
+    private val onRouteStation = nearbyStation(
         id = "ON_ROUTE", name = "경로위주유소", brandCode = "SKE",
-        lat = 37.05, lon = 127.05, price = 1650, distance = 500.0
+        lat = 37.05, lon = 127.05, price = 1650, distanceMeters = 500.0
     )
-    private val offRouteStation = opinetStation(
+    private val offRouteStation = nearbyStation(
         id = "OFF_ROUTE", name = "경로밖싼주유소", brandCode = "GSC",
-        lat = 37.08, lon = 127.0, price = 1500, distance = 3000.0
+        lat = 37.08, lon = 127.0, price = 1500, distanceMeters = 3000.0
     )
-    private val expensiveOnRouteStation = opinetStation(
+    private val expensiveOnRouteStation = nearbyStation(
         id = "EXPENSIVE", name = "경로위비싼주유소", brandCode = "HDO",
-        lat = 37.03, lon = 127.03, price = 1900, distance = 400.0
+        lat = 37.03, lon = 127.03, price = 1900, distanceMeters = 400.0
     )
 
     @Test
@@ -49,11 +50,11 @@ class RouteGasStationE2eTest(
         stubOpinetReturns(listOf(onRouteStation, offRouteStation, expensiveOnRouteStation))
 
         whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), coordAt(37.05, 127.05)))
-            .thenReturn(route(distance = 15200))
+            .thenReturn(route(distanceMeters = 15200))
         whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), coordAt(37.08, 127.0)))
-            .thenReturn(route(distance = 21000))
+            .thenReturn(route(distanceMeters = 21000))
         whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), coordAt(37.03, 127.03)))
-            .thenReturn(route(distance = 15100))
+            .thenReturn(route(distanceMeters = 15100))
 
         mockMvc.get("/api/gas-stations/recommendations/route") {
             param("originLongitude", "127.0")
@@ -79,7 +80,7 @@ class RouteGasStationE2eTest(
         stubOpinetReturns(listOf(onRouteStation, offRouteStation))
 
         whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), coordAt(37.05, 127.05)))
-            .thenReturn(route(distance = 15200))
+            .thenReturn(route(distanceMeters = 15200))
         whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), coordAt(37.08, 127.0)))
             .thenReturn(null)
 
@@ -144,7 +145,7 @@ class RouteGasStationE2eTest(
         stubBaseRoute()
         stubOpinetReturns(listOf(onRouteStation))
         whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), any()))
-            .thenReturn(route(distance = 15300))
+            .thenReturn(route(distanceMeters = 15300))
 
         mockMvc.get("/api/gas-stations/recommendations/route") {
             param("originLongitude", "127.0")
@@ -182,7 +183,7 @@ class RouteGasStationE2eTest(
         stubBaseRoute()
         stubOpinetReturns(listOf(onRouteStation))
         whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), any()))
-            .thenReturn(route(distance = 15200))
+            .thenReturn(route(distanceMeters = 15200))
 
         mockMvc.get("/api/gas-stations/recommendations/route") {
             param("originLongitude", "127.0")
@@ -206,30 +207,28 @@ class RouteGasStationE2eTest(
         whenever(kakaoDirectionsClient.searchRoute(any(), any())).thenReturn(baseRoute)
     }
 
-    private fun stubOpinetReturns(stations: List<OpinetStation>) {
+    private fun stubOpinetReturns(stations: List<NearbyStation>) {
         whenever(opinetClient.searchByRadius(any(), any(), any(), any())).thenReturn(stations)
     }
 
     private fun coordAt(lat: Double, lon: Double): Coordinate =
         argThat { abs(wgs84.latitude - lat) < 0.001 && abs(wgs84.longitude - lon) < 0.001 }
 
-    private fun opinetStation(
+    private fun nearbyStation(
         id: String, name: String, brandCode: String,
-        lat: Double, lon: Double, price: Int, distance: Double
-    ): OpinetStation {
-        val katec = Coordinate.fromWgs84(Coordinate.Wgs84(lat, lon)).katec
-        return OpinetStation(
-            stationId = id, stationName = name, brandCode = brandCode,
-            price = price, distance = distance, katecX = katec.x, katecY = katec.y
-        )
-    }
+        lat: Double, lon: Double, price: Int, distanceMeters: Double
+    ): NearbyStation = NearbyStation(
+        station = GasStation(id = id, name = name, brand = brandCode, latitude = lat, longitude = lon),
+        price = price,
+        distanceMeters = distanceMeters
+    )
 
-    private fun route(distance: Int, coordinates: List<Coordinate>? = null): Route {
+    private fun route(distanceMeters: Int, coordinates: List<Coordinate>? = null): Route {
         val polyline = coordinates ?: listOf(
             Coordinate.fromWgs84(Coordinate.Wgs84(37.0, 127.0)),
             Coordinate.fromWgs84(Coordinate.Wgs84(37.05, 127.05)),
             Coordinate.fromWgs84(Coordinate.Wgs84(37.1, 127.1))
         )
-        return Route(polyline = polyline, distanceMeters = distance)
+        return Route(polyline = polyline, distanceMeters = distanceMeters)
     }
 }
