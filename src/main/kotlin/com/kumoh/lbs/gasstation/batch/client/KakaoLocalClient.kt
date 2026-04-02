@@ -33,17 +33,12 @@ class KakaoLocalClient(
                 .body(object : ParameterizedTypeReference<KakaoAddressResponse>() {})
 
             val document = response?.documents?.firstOrNull()
-            if (document == null) {
-                logger.warn { "주소 좌표 변환 결과 없음: $address" }
-                return null
-            }
+                ?: return null.also { logger.warn { "주소 좌표 변환 결과 없음: $address" } }
 
             val latitude = document.y.toDoubleOrNull()
+                ?: return null.also { logger.warn { "좌표 파싱 실패: address=$address, x=${document.x}, y=${document.y}" } }
             val longitude = document.x.toDoubleOrNull()
-            if (latitude == null || longitude == null) {
-                logger.warn { "좌표 파싱 실패: address=$address, x=${document.x}, y=${document.y}" }
-                return null
-            }
+                ?: return null.also { logger.warn { "좌표 파싱 실패: address=$address, x=${document.x}, y=${document.y}" } }
 
             Coordinate.Wgs84(latitude, longitude)
         } catch (e: Exception) {
