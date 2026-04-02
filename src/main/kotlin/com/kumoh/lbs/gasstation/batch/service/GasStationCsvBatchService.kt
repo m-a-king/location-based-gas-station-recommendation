@@ -18,7 +18,7 @@ private val logger = KotlinLogging.logger {}
 @Service
 class GasStationCsvBatchService(
     private val kakaoLocalClient: KakaoLocalClient,
-    private val batchWriter: GasStationBatchWriter,
+    private val batchWriter: GasStationImportWriter,
     private val gasStationRepository: GasStationRepository
 ) {
     companion object {

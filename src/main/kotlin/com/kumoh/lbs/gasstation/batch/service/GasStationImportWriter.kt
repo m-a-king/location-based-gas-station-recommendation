@@ -11,7 +11,7 @@ import org.springframework.transaction.annotation.Transactional
 private val logger = KotlinLogging.logger {}
 
 @Service
-class GasStationBatchWriter(
+class GasStationImportWriter(
     private val gasStationRepository: GasStationRepository,
     private val historyRepository: OpinetCsvHistoryRepository
 ) {

@@ -22,7 +22,7 @@ import java.nio.charset.StandardCharsets
 class GasStationCsvBatchServiceTest {
 
     @Mock lateinit var kakaoLocalClient: KakaoLocalClient
-    @Mock lateinit var batchWriter: GasStationBatchWriter
+    @Mock lateinit var batchWriter: GasStationImportWriter
     @Mock lateinit var gasStationRepository: GasStationRepository
 
     @InjectMocks lateinit var service: GasStationCsvBatchService
