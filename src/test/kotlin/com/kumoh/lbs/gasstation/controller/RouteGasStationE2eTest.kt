@@ -76,15 +76,12 @@ class RouteGasStationE2eTest(
     }
 
     @Test
-    fun `경유 경로 조회 실패 시 1차 직선거리 점수로 대체한다`() {
+    fun `경유 경로 조회 실패 시 500을 반환한다`() {
         stubBaseRoute()
-        stubStationsInBounds(listOf(onRouteStation, cheapOffRouteStation))
-        stubPrices(mapOf("ON_ROUTE" to 1650, "OFF_ROUTE" to 1500))
+        stubStationsInBounds(listOf(onRouteStation))
+        stubPrices(mapOf("ON_ROUTE" to 1650))
 
-        whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), coordAt(37.05, 127.05)))
-            .thenReturn(route(distanceMeters = 15200))
-        whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), coordAt(37.065, 127.05)))
-            .thenReturn(null)
+        whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), any())).thenReturn(null)
 
         mockMvc.get("/api/gas-stations/recommendations/route") {
             param("originLongitude", "127.0")
@@ -96,10 +93,7 @@ class RouteGasStationE2eTest(
             param("fuelEfficiency", "10.0")
             param("limit", "2")
         }.andExpect {
-            status { isOk() }
-            jsonPath("$.length()") { value(2) }
-            jsonPath("$[0].score") { exists() }
-            jsonPath("$[1].score") { exists() }
+            status { isInternalServerError() }
         }
     }
 

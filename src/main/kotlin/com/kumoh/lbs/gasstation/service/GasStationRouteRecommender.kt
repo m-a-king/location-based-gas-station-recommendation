@@ -1,10 +1,7 @@
 package com.kumoh.lbs.gasstation.service
 
 import com.kumoh.lbs.gasstation.client.KakaoDirectionsClient
-import com.kumoh.lbs.gasstation.domain.FuelType
-import com.kumoh.lbs.gasstation.domain.NearbyStation
-import com.kumoh.lbs.gasstation.domain.Route
-import com.kumoh.lbs.gasstation.domain.ScoredGasStation
+import com.kumoh.lbs.gasstation.domain.*
 import com.kumoh.lbs.gasstation.repository.GasStationPriceRepository
 import com.kumoh.lbs.gasstation.repository.GasStationRepository
 import com.kumoh.lbs.geo.BoundingBox
@@ -36,9 +33,9 @@ class GasStationRouteRecommender(
         limit: Int
     ): List<ScoredGasStation> {
         val baseRoute = fetchBaseRoute(origin, destination)
-        val corridorCandidates = findCandidatesAlongRoute(baseRoute, fuelType)
-        val preliminaryRanking =
-            rankByEstimatedDetour(corridorCandidates, baseRoute, refuelLiters, fuelEfficiency, limit)
+        val corridorStations = findCorridorStations(baseRoute)
+        val corridorCandidates = attachPrices(corridorStations, fuelType)
+        val preliminaryRanking = rankByEstimatedDetour(corridorCandidates, refuelLiters, fuelEfficiency, limit)
         return refineByActualDetour(
             preliminaryRanking,
             baseRoute,
@@ -54,34 +51,42 @@ class GasStationRouteRecommender(
         kakaoDirectionsClient.searchRoute(origin, destination)
             ?: throw IllegalStateException("경로를 찾을 수 없습니다.")
 
-    private fun findCandidatesAlongRoute(baseRoute: Route, fuelType: FuelType): List<NearbyStation> {
+    private fun findCorridorStations(baseRoute: Route): List<StationWithRouteDistance> {
         val mbrBounds = BoundingBox.aroundPolyline(baseRoute.polyline, BUFFER_RADIUS_METERS)
         val stationsInMbr = gasStationRepository.findInBounds(mbrBounds)
-        val corridorStations = stationsInMbr.filter { station ->
-            val distanceFromRoute = GeoUtils.calculateMinDistanceToPolyline(station.coordinate, baseRoute.polyline)
-            distanceFromRoute <= BUFFER_RADIUS_METERS
-        }
+        return stationsInMbr
+            .map { station ->
+                val distanceFromRoute = GeoUtils.calculateMinDistanceToPolyline(station.coordinate, baseRoute.polyline)
+                StationWithRouteDistance(station, distanceFromRoute)
+            }
+            .filter { it.distanceFromRoute <= BUFFER_RADIUS_METERS }
+            .also { logger.info { "경로 corridor 내 주유소: ${it.size}건 (BUFFER=${BUFFER_RADIUS_METERS.toInt()}m)" } }
+    }
+
+    private fun attachPrices(
+        corridorStations: List<StationWithRouteDistance>,
+        fuelType: FuelType
+    ): List<RouteStationCandidate> {
         val stationIdToPrice = gasStationPriceRepository
-            .findAllByIdStationIdInAndIdFuelType(corridorStations.map { it.id }, fuelType)
+            .findAllByIdStationIdInAndIdFuelType(corridorStations.map { it.station.id }, fuelType)
             .associate { it.id.stationId to it.price }
 
-        return corridorStations.mapNotNull { station ->
-            val price = stationIdToPrice[station.id] ?: return@mapNotNull null
-            NearbyStation(station, price, distanceMeters = 0.0)
-        }.also { logger.info { "경로 corridor 내 주유소: ${it.size}건 (BUFFER=${BUFFER_RADIUS_METERS.toInt()}m)" } }
+        return corridorStations.map { (station, distanceFromRoute) ->
+            val price = stationIdToPrice[station.id]
+                ?: error("주유소 가격 정보 없음: stationId=${station.id}, fuelType=$fuelType")
+            RouteStationCandidate(station, price, distanceFromRoute)
+        }
     }
 
     private fun rankByEstimatedDetour(
-        corridorCandidates: List<NearbyStation>,
-        baseRoute: Route,
+        corridorCandidates: List<RouteStationCandidate>,
         refuelLiters: Double,
         fuelEfficiency: Double,
         limit: Int
     ): List<ScoredGasStation> =
         corridorCandidates
             .map { candidate ->
-                val estimatedDetour =
-                    GeoUtils.calculateMinDistanceToPolyline(candidate.station.coordinate, baseRoute.polyline) * 2
+                val estimatedDetour = candidate.distanceFromRoute * 2
                 ScoredGasStation.ofWithDetour(
                     candidate.station,
                     candidate.price,
@@ -108,10 +113,7 @@ class GasStationRouteRecommender(
             .map { candidate ->
                 val routeViaStation =
                     kakaoDirectionsClient.searchRouteViaWaypoint(origin, destination, candidate.station.coordinate)
-                if (routeViaStation == null) {
-                    logger.debug { "경유 경로 조회 실패: ${candidate.station.name}, 1차 점수 유지" }
-                    return@map candidate
-                }
+                        ?: throw IllegalStateException("경유 경로 조회 실패: stationId=${candidate.station.id}")
                 val actualDetour =
                     (routeViaStation.distanceMeters - baseRoute.distanceMeters).coerceAtLeast(0).toDouble()
                 ScoredGasStation.ofWithDetour(
