@@ -9,7 +9,7 @@ object GeoUtils {
 
     private const val EARTH_RADIUS_METERS = 6_371_000.0
 
-    fun haversineMeters(
+    fun calculateHaversineDistance(
         a: Coordinate.Wgs84,
         b: Coordinate.Wgs84
     ): Double {
@@ -25,7 +25,7 @@ object GeoUtils {
         return 2 * EARTH_RADIUS_METERS * asin(sqrt(h))
     }
 
-    fun pointToSegmentDistanceMeters(
+    fun calculatePointToSegmentDistance(
         point: Coordinate.Wgs84,
         segStart: Coordinate.Wgs84,
         segEnd: Coordinate.Wgs84
@@ -34,7 +34,7 @@ object GeoUtils {
         val segDy = segEnd.latitude - segStart.latitude
         val segLengthSq = segDx * segDx + segDy * segDy
 
-        if (segLengthSq == 0.0) return haversineMeters(point, segStart)
+        if (segLengthSq == 0.0) return calculateHaversineDistance(point, segStart)
 
         val projection = ((point.longitude - segStart.longitude) * segDx +
                 (point.latitude - segStart.latitude) * segDy) / segLengthSq
@@ -45,14 +45,15 @@ object GeoUtils {
             longitude = segStart.longitude + t * segDx
         )
 
-        return haversineMeters(point, closest)
+        return calculateHaversineDistance(point, closest)
     }
 
-    fun minDistanceToPolylineMeters(
+    fun calculateMinDistanceToPolyline(
         point: Coordinate,
         polyline: List<Coordinate>
     ): Double =
         polyline.zipWithNext().minOf { (start, end) ->
-            pointToSegmentDistanceMeters(point.wgs84, start.wgs84, end.wgs84)
+            calculatePointToSegmentDistance(point.wgs84, start.wgs84, end.wgs84)
         }
+
 }

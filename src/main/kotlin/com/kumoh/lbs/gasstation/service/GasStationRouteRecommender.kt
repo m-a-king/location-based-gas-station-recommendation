@@ -1,12 +1,15 @@
 package com.kumoh.lbs.gasstation.service
 
+import com.kumoh.lbs.gasstation.client.KakaoDirectionsClient
+import com.kumoh.lbs.gasstation.domain.FuelType
+import com.kumoh.lbs.gasstation.domain.NearbyStation
+import com.kumoh.lbs.gasstation.domain.Route
+import com.kumoh.lbs.gasstation.domain.ScoredGasStation
+import com.kumoh.lbs.gasstation.repository.GasStationPriceRepository
+import com.kumoh.lbs.gasstation.repository.GasStationRepository
+import com.kumoh.lbs.geo.BoundingBox
 import com.kumoh.lbs.geo.Coordinate
 import com.kumoh.lbs.geo.GeoUtils
-import com.kumoh.lbs.gasstation.client.KakaoDirectionsClient
-import com.kumoh.lbs.gasstation.client.OpinetClient
-import com.kumoh.lbs.gasstation.client.OpinetClient.SortType
-import com.kumoh.lbs.gasstation.domain.FuelType
-import com.kumoh.lbs.gasstation.domain.ScoredGasStation
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
 
@@ -15,13 +18,12 @@ private val logger = KotlinLogging.logger {}
 @Service
 class GasStationRouteRecommender(
     private val kakaoDirectionsClient: KakaoDirectionsClient,
-    private val opinetClient: OpinetClient
+    private val gasStationRepository: GasStationRepository,
+    private val gasStationPriceRepository: GasStationPriceRepository
 ) {
 
     companion object {
-        private const val SEARCH_RADIUS = 5000
-        private const val MAX_SAMPLE_POINTS = 20
-        private const val MIN_INTERVAL_METERS = SEARCH_RADIUS.toDouble()
+        private const val BUFFER_RADIUS_METERS = 2000.0
         private const val PRELIMINARY_FILTER_MULTIPLIER = 3
     }
 
@@ -33,88 +35,94 @@ class GasStationRouteRecommender(
         fuelEfficiency: Double,
         limit: Int
     ): List<ScoredGasStation> {
-        // STEP 1: 기본 경로 조회
-        val route = kakaoDirectionsClient.searchRoute(origin, destination)
+        val baseRoute = fetchBaseRoute(origin, destination)
+        val corridorCandidates = findCandidatesAlongRoute(baseRoute, fuelType)
+        val preliminaryRanking =
+            rankByEstimatedDetour(corridorCandidates, baseRoute, refuelLiters, fuelEfficiency, limit)
+        return refineByActualDetour(
+            preliminaryRanking,
+            baseRoute,
+            origin,
+            destination,
+            refuelLiters,
+            fuelEfficiency,
+            limit
+        )
+    }
+
+    private fun fetchBaseRoute(origin: Coordinate, destination: Coordinate): Route =
+        kakaoDirectionsClient.searchRoute(origin, destination)
             ?: throw IllegalStateException("경로를 찾을 수 없습니다.")
 
-        // STEP 2: 경로 위 주유소 탐색
-        val interval = maxOf(route.distanceMeters.toDouble() / MAX_SAMPLE_POINTS, MIN_INTERVAL_METERS)
-        val samplePoints = samplePolyline(route.polyline, interval)
-        logger.info { "경로 샘플링: ${route.polyline.size}개 좌표 → ${samplePoints.size}개 검색 지점" }
+    private fun findCandidatesAlongRoute(baseRoute: Route, fuelType: FuelType): List<NearbyStation> {
+        val mbrBounds = BoundingBox.aroundPolyline(baseRoute.polyline, BUFFER_RADIUS_METERS)
+        val stationsInMbr = gasStationRepository.findInBounds(mbrBounds)
+        val corridorStations = stationsInMbr.filter { station ->
+            val distanceFromRoute = GeoUtils.calculateMinDistanceToPolyline(station.coordinate, baseRoute.polyline)
+            distanceFromRoute <= BUFFER_RADIUS_METERS
+        }
+        val stationIdToPrice = gasStationPriceRepository
+            .findAllByIdStationIdInAndIdFuelType(corridorStations.map { it.id }, fuelType)
+            .associate { it.id.stationId to it.price }
 
-        val uniqueStations = samplePoints
-            .flatMap { opinetClient.searchByRadius(it, SEARCH_RADIUS, fuelType, SortType.PRICE) }
-            .distinctBy { it.station.id }
+        return corridorStations.mapNotNull { station ->
+            val price = stationIdToPrice[station.id] ?: return@mapNotNull null
+            NearbyStation(station, price, distanceMeters = 0.0)
+        }.also { logger.info { "경로 corridor 내 주유소: ${it.size}건 (BUFFER=${BUFFER_RADIUS_METERS.toInt()}m)" } }
+    }
 
-        logger.info { "경로 주변 주유소: ${uniqueStations.size}건 (중복 제거 후)" }
-
-        // STEP 3: 1차 필터 (직선거리 기반, 상위 limit × 3)
-        val preliminaryCandidates = uniqueStations
-            .map { nearby ->
-                val detourDistance = calculateDetourDistance(nearby.station.coordinate, route.polyline)
-                ScoredGasStation.ofWithDetour(nearby.station, nearby.price, nearby.distanceMeters, refuelLiters, fuelEfficiency, detourDistance)
+    private fun rankByEstimatedDetour(
+        corridorCandidates: List<NearbyStation>,
+        baseRoute: Route,
+        refuelLiters: Double,
+        fuelEfficiency: Double,
+        limit: Int
+    ): List<ScoredGasStation> =
+        corridorCandidates
+            .map { candidate ->
+                val estimatedDetour =
+                    GeoUtils.calculateMinDistanceToPolyline(candidate.station.coordinate, baseRoute.polyline) * 2
+                ScoredGasStation.ofWithDetour(
+                    candidate.station,
+                    candidate.price,
+                    estimatedDetour,
+                    refuelLiters,
+                    fuelEfficiency,
+                    estimatedDetour
+                )
             }
             .sortedBy { it.score }
             .take(limit * PRELIMINARY_FILTER_MULTIPLIER)
+            .also { logger.info { "1차 필터 통과: ${it.size}건" } }
 
-        logger.info { "1차 필터 통과: ${preliminaryCandidates.size}건" }
-
-        // STEP 4: 2차 정밀 계산 (실제 경유 경로 거리)
-        val refinedCandidates = preliminaryCandidates.mapNotNull { scored ->
-            val viaRoute = kakaoDirectionsClient.searchRouteViaWaypoint(
-                origin, destination, scored.station.coordinate
-            )
-            if (viaRoute == null) {
-                logger.debug { "경유 경로 조회 실패: ${scored.station.name}, 1차 점수 유지" }
-                return@mapNotNull scored
+    private fun refineByActualDetour(
+        preliminaryRanking: List<ScoredGasStation>,
+        baseRoute: Route,
+        origin: Coordinate,
+        destination: Coordinate,
+        refuelLiters: Double,
+        fuelEfficiency: Double,
+        limit: Int
+    ): List<ScoredGasStation> =
+        preliminaryRanking
+            .map { candidate ->
+                val routeViaStation =
+                    kakaoDirectionsClient.searchRouteViaWaypoint(origin, destination, candidate.station.coordinate)
+                if (routeViaStation == null) {
+                    logger.debug { "경유 경로 조회 실패: ${candidate.station.name}, 1차 점수 유지" }
+                    return@map candidate
+                }
+                val actualDetour =
+                    (routeViaStation.distanceMeters - baseRoute.distanceMeters).coerceAtLeast(0).toDouble()
+                ScoredGasStation.ofWithDetour(
+                    candidate.station,
+                    candidate.price,
+                    candidate.distance,
+                    refuelLiters,
+                    fuelEfficiency,
+                    actualDetour
+                )
             }
-
-            val actualDetour = (viaRoute.distanceMeters - route.distanceMeters).coerceAtLeast(0).toDouble()
-            ScoredGasStation.ofWithDetour(scored.station, scored.price, scored.distance, refuelLiters, fuelEfficiency, actualDetour)
-        }
-
-        return refinedCandidates
             .sortedBy { it.score }
             .take(limit)
-    }
-
-    private fun samplePolyline(
-        polyline: List<Coordinate>,
-        intervalMeters: Double
-    ): List<Coordinate> {
-        if (polyline.size <= 1) return polyline
-
-        val sampled = mutableListOf(polyline.first())
-        var accumulated = 0.0
-
-        for (i in 1 until polyline.size) {
-            val prev = polyline[i - 1].wgs84
-            val curr = polyline[i].wgs84
-            val segDist = GeoUtils.haversineMeters(prev, curr)
-            accumulated += segDist
-
-            while (accumulated >= intervalMeters) {
-                val overshoot = accumulated - intervalMeters
-                val ratio = if (segDist > 0) 1.0 - overshoot / segDist else 1.0
-                val interpolated = Coordinate.fromWgs84(Coordinate.Wgs84(
-                    latitude = prev.latitude + ratio * (curr.latitude - prev.latitude),
-                    longitude = prev.longitude + ratio * (curr.longitude - prev.longitude)
-                ))
-                sampled.add(interpolated)
-                accumulated = overshoot
-            }
-        }
-
-        if (sampled.last() != polyline.last()) {
-            sampled.add(polyline.last())
-        }
-
-        return sampled
-    }
-
-    private fun calculateDetourDistance(
-        stationLocation: Coordinate,
-        polyline: List<Coordinate>
-    ): Double =
-        GeoUtils.minDistanceToPolylineMeters(stationLocation, polyline) * 2
 }
