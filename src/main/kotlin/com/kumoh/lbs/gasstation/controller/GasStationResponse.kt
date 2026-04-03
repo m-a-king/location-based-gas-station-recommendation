@@ -13,7 +13,7 @@ data class GasStationResponse(
     val price: Int,
     val distance: Double,
     val score: Double,
-    val detourDistance: Double? = null
+    val isActualDetour: Boolean = false
 ) {
     companion object {
         fun from(scored: ScoredGasStation) = GasStationResponse(
@@ -25,7 +25,7 @@ data class GasStationResponse(
             price = scored.price,
             distance = scored.distance,
             score = scored.score,
-            detourDistance = scored.detourDistance
+            isActualDetour = scored.isActualDetour
         )
     }
 }
