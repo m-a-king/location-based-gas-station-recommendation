@@ -61,4 +61,54 @@ class GasStationControllerTest(
             status { isBadRequest() }
         }
     }
+
+    // ─── 경로 기반 API validation ─────────────────────────────────────────────
+
+    @Test
+    fun `경로 API에서 필수 파라미터 누락 시 400을 반환한다`() {
+        mockMvc.get("/api/gas-stations/recommendations/route") {
+            // originLatitude 누락
+            param("originLongitude", "127.0")
+            param("destinationLatitude", "35.1")
+            param("destinationLongitude", "129.0")
+            param("fuelType", "GASOLINE")
+            param("refuelLiters", "40.0")
+            param("fuelEfficiency", "10.0")
+            param("limit", "3")
+        }.andExpect {
+            status { isBadRequest() }
+        }
+    }
+
+    @Test
+    fun `경로 API에서 지원하지 않는 유종 코드는 400을 반환한다`() {
+        mockMvc.get("/api/gas-stations/recommendations/route") {
+            param("originLatitude", "37.0")
+            param("originLongitude", "127.0")
+            param("destinationLatitude", "35.1")
+            param("destinationLongitude", "129.0")
+            param("fuelType", "INVALID")
+            param("refuelLiters", "40.0")
+            param("fuelEfficiency", "10.0")
+            param("limit", "3")
+        }.andExpect {
+            status { isBadRequest() }
+        }
+    }
+
+    @Test
+    fun `경로 API에서 limit이 5를 초과하면 400을 반환한다`() {
+        mockMvc.get("/api/gas-stations/recommendations/route") {
+            param("originLatitude", "37.0")
+            param("originLongitude", "127.0")
+            param("destinationLatitude", "35.1")
+            param("destinationLongitude", "129.0")
+            param("fuelType", "GASOLINE")
+            param("refuelLiters", "40.0")
+            param("fuelEfficiency", "10.0")
+            param("limit", "10")
+        }.andExpect {
+            status { isBadRequest() }
+        }
+    }
 }

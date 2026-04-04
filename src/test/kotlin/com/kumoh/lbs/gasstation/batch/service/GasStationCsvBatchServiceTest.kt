@@ -1,6 +1,7 @@
 package com.kumoh.lbs.gasstation.batch.service
 
 import com.kumoh.lbs.gasstation.batch.client.KakaoLocalClient
+import com.kumoh.lbs.gasstation.domain.GasStation
 import com.kumoh.lbs.gasstation.repository.GasStationRepository
 import com.kumoh.lbs.geo.Coordinate
 import io.kotest.matchers.shouldBe
@@ -12,7 +13,10 @@ import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argThat
+import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.never
+import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.io.File
@@ -164,6 +168,124 @@ class GasStationCsvBatchServiceTest {
         result.saved shouldBe 1
         result.geocodeErrors shouldBe 1
         verify(batchWriter).saveMetadata(any(), any())
+    }
+
+    // ─── 변환 결과 검증 ──────────────────────────────────────────────────────
+
+    @Test
+    fun `name 컬럼이 비어있으면 stationId로 대체된다`() {
+        val path = csvFile("no_name.csv", "$validHeader\nST001,,SKE,서울 강남,N")
+        whenever(kakaoLocalClient.resolveCoordinates(any())).thenReturn(Coordinate.Wgs84(37.5, 127.0))
+
+        service.importFromCsv(path, charset)
+
+        val captor = argumentCaptor<List<GasStation>>()
+        verify(batchWriter).saveBatch(captor.capture())
+        val saved = captor.firstValue[0]
+        saved.name shouldBe "ST001"
+    }
+
+    @Test
+    fun `인식 가능한 brand 코드는 한글 브랜드명으로 변환된다`() {
+        val path = csvFile("brand_ske.csv", "$validHeader\nST001,주유소A,SKE,서울 강남,N")
+        whenever(kakaoLocalClient.resolveCoordinates(any())).thenReturn(Coordinate.Wgs84(37.5, 127.0))
+
+        service.importFromCsv(path, charset)
+
+        val captor = argumentCaptor<List<GasStation>>()
+        verify(batchWriter).saveBatch(captor.capture())
+        val saved = captor.firstValue[0]
+        saved.brand shouldBe "SK에너지"
+    }
+
+    @Test
+    fun `인식 불가 brand는 기타로 처리된다`() {
+        val path = csvFile("brand_unknown.csv", "$validHeader\nST001,주유소A,UNKNOWN,서울 강남,N")
+        whenever(kakaoLocalClient.resolveCoordinates(any())).thenReturn(Coordinate.Wgs84(37.5, 127.0))
+
+        service.importFromCsv(path, charset)
+
+        val captor = argumentCaptor<List<GasStation>>()
+        verify(batchWriter).saveBatch(captor.capture())
+        val saved = captor.firstValue[0]
+        saved.brand shouldBe "기타"
+    }
+
+    @Test
+    fun `셀프여부가 Y이면 isSelf=true다`() {
+        val path = csvFile("self_y.csv", "$validHeader\nST001,주유소A,SKE,서울 강남,Y")
+        whenever(kakaoLocalClient.resolveCoordinates(any())).thenReturn(Coordinate.Wgs84(37.5, 127.0))
+
+        service.importFromCsv(path, charset)
+
+        val captor = argumentCaptor<List<GasStation>>()
+        verify(batchWriter).saveBatch(captor.capture())
+        captor.firstValue[0].isSelf shouldBe true
+    }
+
+    @Test
+    fun `셀프여부가 셀프이면 isSelf=true다`() {
+        val path = csvFile("self_text.csv", "$validHeader\nST001,주유소A,SKE,서울 강남,셀프")
+        whenever(kakaoLocalClient.resolveCoordinates(any())).thenReturn(Coordinate.Wgs84(37.5, 127.0))
+
+        service.importFromCsv(path, charset)
+
+        val captor = argumentCaptor<List<GasStation>>()
+        verify(batchWriter).saveBatch(captor.capture())
+        captor.firstValue[0].isSelf shouldBe true
+    }
+
+    @Test
+    fun `기존 좌표가 있으면 geocoding을 호출하지 않는다`() {
+        val path = csvFile("existing_coord.csv", "$validHeader\n${validRow("ST001")}")
+        whenever(gasStationRepository.findAllCoord()).thenReturn(listOf(
+            object : com.kumoh.lbs.gasstation.repository.StationCoord {
+                override val id = "ST001"
+                override val latitude = 37.5
+                override val longitude = 127.0
+            }
+        ))
+
+        service.importFromCsv(path, charset)
+
+        verify(kakaoLocalClient, never()).resolveCoordinates(any())
+    }
+
+    @Test
+    fun `50건은 saveBatch 1번 호출된다`() {
+        val rows = (1..50).joinToString("\n") { validRow("ST$it") }
+        val path = csvFile("batch50.csv", "$validHeader\n$rows")
+        whenever(kakaoLocalClient.resolveCoordinates(any())).thenReturn(Coordinate.Wgs84(37.5, 127.0))
+
+        service.importFromCsv(path, charset)
+
+        verify(batchWriter, times(1)).saveBatch(any())
+    }
+
+    @Test
+    fun `51건은 saveBatch가 2번 호출되고 총 51건이 저장된다`() {
+        val rows = (1..51).joinToString("\n") { validRow("ST$it") }
+        val path = csvFile("batch51.csv", "$validHeader\n$rows")
+        whenever(kakaoLocalClient.resolveCoordinates(any())).thenReturn(Coordinate.Wgs84(37.5, 127.0))
+
+        val result = service.importFromCsv(path, charset)
+
+        // saveBatch가 50건 + 1건으로 2번 나뉘어 호출됨
+        // 서비스가 가변 리스트를 재사용하므로 배치 크기는 result.saved로 간접 검증
+        verify(batchWriter, times(2)).saveBatch(any())
+        result.saved shouldBe 51
+    }
+
+    @Test
+    fun `UNI_ID, NEW_ADR, SELF_YN 헤더도 인식한다`() {
+        val path = csvFile("opinet_header.csv",
+            "UNI_ID,OS_NM,POLL_DIV_NM,NEW_ADR,SELF_YN\nST001,주유소A,SKE,서울 강남,Y"
+        )
+        whenever(kakaoLocalClient.resolveCoordinates(any())).thenReturn(Coordinate.Wgs84(37.5, 127.0))
+
+        val result = service.importFromCsv(path, charset)
+
+        result.saved shouldBe 1
     }
 
     // ─── 스킵 정책 ───────────────────────────────────────────────────────────

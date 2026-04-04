@@ -48,9 +48,14 @@ class GasStationRouteRecommender(
         )
     }
 
-    private fun fetchBaseRoute(origin: Coordinate, destination: Coordinate): Route =
-        kakaoDirectionsClient.searchRoute(origin, destination)
+    private fun fetchBaseRoute(origin: Coordinate, destination: Coordinate): Route {
+        val route = kakaoDirectionsClient.searchRoute(origin, destination)
             ?: throw IllegalStateException("경로를 찾을 수 없습니다.")
+        check(route.polyline.size >= 2) {
+            "유효하지 않은 경로 polyline: ${route.polyline.size}점 (최소 2점 필요)"
+        }
+        return route
+    }
 
     private fun gatherCandidates(
         baseRoute: Route,
