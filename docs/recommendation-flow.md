@@ -122,7 +122,7 @@ sequenceDiagram
     DB-->>Server: 가격 정보
     Note over Server: 가격 없는 주유소 제외<br/>가격 오름차순 정렬
 
-    loop 후보마다 (price lower bound 초과 시 조기 종료)
+    loop 후보마다, lower bound 초과 시 조기 종료
         Server->>Kakao: 경유 경로 조회 (출발 → 주유소 → 도착)
         Kakao-->>Server: 경유 시 총 거리 + 총 소요 시간
         Note over Server: 실제 우회 거리·시간으로 점수 계산<br/>top-limit 확보 후 pruning 판단
@@ -144,7 +144,7 @@ flowchart TD
     C["② 경로 주변 주유소 조회<br/>경로 전체를 감싸는 사각형에<br/>2km 버퍼를 더한 범위로 DB 조회"]
     C --> D
 
-    D{"③ Corridor 필터<br/>각 주유소 ↔ 경로 최단 거리 계산"}
+    D{"③ Corridor 필터<br/>각 주유소와 경로 최단 거리 계산"}
     D -->|경로에서 2km 초과| DISC1[제외]
     D -->|경로에서 2km 이내| E
 
@@ -159,10 +159,10 @@ flowchart TD
     G --> H
 
     H{"⑦ price lower bound 검사<br/>price × 주유량 > k번째 최선 점수?"}
-    H -->|예 (이후 모든 후보 pruning 가능)| J
+    H -->|예: 이후 후보 전부 탈락| J
     H -->|아니오| I
 
-    I["⑧ Kakao 경유 경로 조회<br/>출발 → 주유소 → 도착<br/>우회 거리 = 경유 거리 - 기본 거리 (음수 → 0 보정)<br/>우회 시간 = 경유 시간 - 기본 시간 (음수 → 0 보정)<br/>점수 = 주유비 + 우회 연료비 + 우회 시간×최저시급"]
+    I["⑧ Kakao 경유 경로 조회<br/>출발 → 주유소 → 도착<br/>우회 거리 = 경유 거리 - 기본 거리, 음수면 0<br/>우회 시간 = 경유 시간 - 기본 시간, 음수면 0<br/>점수 = 주유비 + 우회 연료비 + 우회 시간 x 최저시급"]
     I --> H2["top-limit 확보 시 kth 점수 갱신"]
     H2 --> H
 
