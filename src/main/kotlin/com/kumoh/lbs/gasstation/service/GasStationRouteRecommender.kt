@@ -98,7 +98,8 @@ class GasStationRouteRecommender(
                 ?: throw IllegalStateException("경유 경로 조회 실패: stationId=${station.id}")
 
             val actualDetour = (routeViaStation.distanceMeters - baseRoute.distanceMeters).coerceAtLeast(0).toDouble()
-            val scored = ScoredGasStation.of(station, price, actualDetour, refuelLiters, fuelEfficiency, isActualDetour = true)
+            val actualDetourSeconds = (routeViaStation.durationSeconds - baseRoute.durationSeconds).coerceAtLeast(0)
+            val scored = ScoredGasStation.of(station, price, actualDetour, refuelLiters, fuelEfficiency, actualDetourSeconds, isActualDetour = true)
 
             results.add(scored)
             if (results.size >= limit) {

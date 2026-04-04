@@ -68,7 +68,7 @@ class KakaoDirectionsClient(
             val polyline = kakaoRoute.extractPolyline()
             logger.info { "카카오 길찾기 성공: 거리=${distance}m, 폴리라인=${polyline.size}개 좌표" }
 
-            Route(polyline = polyline, distanceMeters = distance)
+            Route(polyline = polyline, distanceMeters = distance, durationSeconds = kakaoRoute.summary.duration ?: 0)
         } catch (e: Exception) {
             logger.warn { "카카오 길찾기 API 호출 실패: ${e.message}" }
             null

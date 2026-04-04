@@ -4,7 +4,8 @@ import com.kumoh.lbs.geo.Coordinate
 
 data class Route(
     val polyline: List<Coordinate>,
-    val distanceMeters: Int
+    val distanceMeters: Int,
+    val durationSeconds: Int = 0
 ) {
     init {
         require(polyline.isNotEmpty()) { "경로 폴리라인이 비어 있습니다." }

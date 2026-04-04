@@ -12,6 +12,7 @@ data class GasStationResponse(
     val longitude: Double,
     val price: Int,
     val distance: Double,
+    val durationSeconds: Int = 0,
     val score: Double,
     val isActualDetour: Boolean = false
 ) {
@@ -24,6 +25,7 @@ data class GasStationResponse(
             longitude = scored.station.longitude,
             price = scored.price,
             distance = scored.distance,
+            durationSeconds = scored.durationSeconds,
             score = scored.score,
             isActualDetour = scored.isActualDetour
         )
