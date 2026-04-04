@@ -2,6 +2,7 @@ package com.kumoh.lbs.gasstation.service
 
 import com.kumoh.lbs.gasstation.client.KakaoDirectionsClient
 import com.kumoh.lbs.gasstation.domain.FuelType
+import com.kumoh.lbs.gasstation.domain.GasStation
 import com.kumoh.lbs.gasstation.domain.Route
 import com.kumoh.lbs.gasstation.domain.ScoredGasStation
 import com.kumoh.lbs.gasstation.repository.GasStationPriceRepository
@@ -23,7 +24,6 @@ class GasStationRouteRecommender(
 
     companion object {
         private const val BUFFER_RADIUS_METERS = 2000.0
-        private const val PRELIMINARY_FILTER_MULTIPLIER = 3
     }
 
     fun recommend(
@@ -35,17 +35,8 @@ class GasStationRouteRecommender(
         limit: Int
     ): List<ScoredGasStation> {
         val baseRoute = fetchBaseRoute(origin, destination)
-        val candidates = gatherCandidates(baseRoute, fuelType, refuelLiters, fuelEfficiency)
-        val rankedByEstimatedDetour = rankByEstimatedDetour(candidates, limit)
-        return rankByActualDetour(
-            rankedByEstimatedDetour,
-            baseRoute,
-            origin,
-            destination,
-            refuelLiters,
-            fuelEfficiency,
-            limit
-        )
+        val candidates = gatherCandidates(baseRoute, fuelType)
+        return rankByPriceLowerBound(candidates, baseRoute, origin, destination, refuelLiters, fuelEfficiency, limit)
     }
 
     private fun fetchBaseRoute(origin: Coordinate, destination: Coordinate): Route {
@@ -59,10 +50,8 @@ class GasStationRouteRecommender(
 
     private fun gatherCandidates(
         baseRoute: Route,
-        fuelType: FuelType,
-        refuelLiters: Double,
-        fuelEfficiency: Double
-    ): List<ScoredGasStation> {
+        fuelType: FuelType
+    ): List<Pair<GasStation, Int>> {
         val mbrBounds = BoundingBox.aroundPolyline(baseRoute.polyline, BUFFER_RADIUS_METERS)
         val corridorStations = gasStationRepository.findInBounds(mbrBounds)
             .map { it to GeoUtils.calculateMinDistanceToPolyline(it.coordinate, baseRoute.polyline) }
@@ -78,46 +67,46 @@ class GasStationRouteRecommender(
 
         return corridorStations
             .filter { (station, _) -> station.id !in missingIds }
-            .map { (station, distanceFromRoute) ->
-                val estimatedRoundTripDetour = distanceFromRoute * 2
-                ScoredGasStation.of(station, prices.getValue(station.id), estimatedRoundTripDetour, refuelLiters, fuelEfficiency)
-            }
+            .map { (station, _) -> station to prices.getValue(station.id) }
+            .sortedBy { (_, price) -> price }
     }
 
-    private fun rankByEstimatedDetour(
-        candidates: List<ScoredGasStation>,
-        limit: Int
-    ): List<ScoredGasStation> =
-        candidates
-            .sortedBy { it.score }
-            .take(limit * PRELIMINARY_FILTER_MULTIPLIER)
-            .also { logger.info { "1차 필터 통과: ${it.size}건" } }
-
-    private fun rankByActualDetour(
-        rankedByEstimatedDetour: List<ScoredGasStation>,
+    // score = price × refuelLiters + (detourKm / fuelEfficiency) × price
+    // detour ≥ 0 이므로 price × refuelLiters 는 score의 수학적 하한(lower bound)
+    // → 가격 오름차순 탐색 중, top-limit 결과가 확보된 후
+    //   price × refuelLiters > 현재 k번째 최선 score 이면 이후 모든 후보 pruning 가능
+    private fun rankByPriceLowerBound(
+        candidates: List<Pair<GasStation, Int>>,
         baseRoute: Route,
         origin: Coordinate,
         destination: Coordinate,
         refuelLiters: Double,
         fuelEfficiency: Double,
         limit: Int
-    ): List<ScoredGasStation> =
-        rankedByEstimatedDetour
-            .map { candidate ->
-                val routeViaStation =
-                    kakaoDirectionsClient.searchRouteViaWaypoint(origin, destination, candidate.station.coordinate)
-                        ?: throw IllegalStateException("경유 경로 조회 실패: stationId=${candidate.station.id}")
-                val actualDetour =
-                    (routeViaStation.distanceMeters - baseRoute.distanceMeters).coerceAtLeast(0).toDouble()
-                ScoredGasStation.of(
-                    candidate.station,
-                    candidate.price,
-                    actualDetour,
-                    refuelLiters,
-                    fuelEfficiency,
-                    isActualDetour = true
-                )
+    ): List<ScoredGasStation> {
+        val results = mutableListOf<ScoredGasStation>()
+        var kthBestScore = Double.MAX_VALUE
+
+        for ((index, candidate) in candidates.withIndex()) {
+            val (station, price) = candidate
+            if (price * refuelLiters > kthBestScore) {
+                logger.info { "price lower bound 초과로 탐색 종료: ${candidates.size - index}건 pruning" }
+                break
             }
-            .sortedBy { it.score }
-            .take(limit)
+
+            val routeViaStation = kakaoDirectionsClient.searchRouteViaWaypoint(origin, destination, station.coordinate)
+                ?: throw IllegalStateException("경유 경로 조회 실패: stationId=${station.id}")
+
+            val actualDetour = (routeViaStation.distanceMeters - baseRoute.distanceMeters).coerceAtLeast(0).toDouble()
+            val scored = ScoredGasStation.of(station, price, actualDetour, refuelLiters, fuelEfficiency, isActualDetour = true)
+
+            results.add(scored)
+            if (results.size >= limit) {
+                kthBestScore = results.sortedBy { it.score }[limit - 1].score
+            }
+        }
+
+        logger.info { "Kakao API 호출: ${results.size}회" }
+        return results.sortedBy { it.score }.take(limit)
+    }
 }

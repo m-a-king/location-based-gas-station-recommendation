@@ -80,7 +80,7 @@ class GasStationE2eTest(
             param("fuelType", "GASOLINE")
             param("refuelLiters", "40.0")
             param("fuelEfficiency", "10.0")
-            param("limit", "5")
+            param("limit", "3")
         }.andExpect {
             status { isOk() }
             jsonPath("$.length()") { value(1) }

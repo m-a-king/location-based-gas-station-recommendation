@@ -84,23 +84,49 @@ class GasStationRouteRecommenderTest {
         result[0].station.id shouldBe "A"
     }
 
-    // ─── 1차 필터 limit * 3 ─────────────────────────────────────────────────
+    // ─── price lower bound pruning ──────────────────────────────────────────
 
     @Test
-    fun `2차 Kakao API 호출 수는 limit x3 이하다`() {
+    fun `현재 최선 score보다 lower bound가 큰 주유소는 Kakao API를 호출하지 않는다`() {
+        // refuelLiters=40, fuelEfficiency=10
+        // A(1400원): score = 1400×40 + 0 = 56000  → bestScore = 56000
+        // B(1500원): lower bound = 1500×40 = 60000 > 56000 → pruning
         whenever(kakaoDirectionsClient.searchRoute(any(), any())).thenReturn(baseRoute)
-        // corridor 안에 10개 주유소, limit=2 → 1차 필터 후 최대 6개만 2차 호출
-        val stations = (1..10).map { gasStation("S$it", lat = 37.0 + it * 0.005, lon = 127.005) }
-        val prices = stations.map { price(it.id, 1500 + stations.indexOf(it) * 10) }
+        val stationA = gasStation("A", lat = 37.05, lon = 127.005)
+        val stationB = gasStation("B", lat = 37.05, lon = 127.005)
 
-        whenever(gasStationRepository.findInBounds(any())).thenReturn(stations)
-        whenever(gasStationPriceRepository.findAllByIdStationIdInAndIdFuelType(any(), any())).thenReturn(prices)
+        whenever(gasStationRepository.findInBounds(any())).thenReturn(listOf(stationA, stationB))
+        whenever(gasStationPriceRepository.findAllByIdStationIdInAndIdFuelType(any(), any()))
+            .thenReturn(listOf(price("A", 1400), price("B", 1500)))
+        // A 경유 시 우회 없음 (기본 경로와 동일) → actualDetour = 0 → score = 56000
         whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), any()))
-            .thenReturn(Route(polyline = polyline, distanceMeters = 11500))
+            .thenReturn(Route(polyline = polyline, distanceMeters = baseRoute.distanceMeters))
 
-        recommender.recommend(origin, destination, FuelType.GASOLINE, 40.0, 10.0, limit = 2)
+        recommender.recommend(origin, destination, FuelType.GASOLINE, 40.0, 10.0, limit = 1)
 
-        verify(kakaoDirectionsClient, times(6)).searchRouteViaWaypoint(any(), any(), any())
+        // A만 호출되고 B는 pruning
+        verify(kakaoDirectionsClient, times(1)).searchRouteViaWaypoint(any(), any(), any())
+    }
+
+    @Test
+    fun `가격이 비슷해 pruning이 안 되면 모든 후보에 Kakao API를 호출한다`() {
+        // refuelLiters=40
+        // A(1500원): score = 1500×40 + (1000/1000/10)×1500 = 60000 + 150 = 60150
+        // B(1501원): lower bound = 1501×40 = 60040 < 60150 → pruning 불가, Kakao 호출
+        whenever(kakaoDirectionsClient.searchRoute(any(), any())).thenReturn(baseRoute)
+        val stationA = gasStation("A", lat = 37.05, lon = 127.005)
+        val stationB = gasStation("B", lat = 37.05, lon = 127.005)
+
+        whenever(gasStationRepository.findInBounds(any())).thenReturn(listOf(stationA, stationB))
+        whenever(gasStationPriceRepository.findAllByIdStationIdInAndIdFuelType(any(), any()))
+            .thenReturn(listOf(price("A", 1500), price("B", 1501)))
+        // 우회 1000m
+        whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), any()))
+            .thenReturn(Route(polyline = polyline, distanceMeters = baseRoute.distanceMeters + 1000))
+
+        recommender.recommend(origin, destination, FuelType.GASOLINE, 40.0, 10.0, limit = 1)
+
+        verify(kakaoDirectionsClient, times(2)).searchRouteViaWaypoint(any(), any(), any())
     }
 
     // ─── 실제 우회거리 음수 보정 ─────────────────────────────────────────────
