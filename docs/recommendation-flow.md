@@ -9,13 +9,15 @@
 두 방식 모두 동일한 공식으로 주유소 점수를 계산한다. **점수가 낮을수록 유리하다.**
 
 $$
-\text{score} = \underbrace{\text{가격} \times \text{주유량}}_{\text{주유 비용}} + \underbrace{\dfrac{\text{거리}_{km}}{\text{연비}} \times \text{가격}}_{\text{이동 연료비}}
+\text{score} = \underbrace{\text{가격} \times \text{주유량}}_{\text{주유 비용}} + \underbrace{\dfrac{\text{거리}_{km}}{\text{연비}} \times \text{가격}}_{\text{우회 연료비}} + \underbrace{\dfrac{\text{우회 시간}_{s}}{3600} \times \text{최저시급}}_{\text{우회 시간 비용}}
 $$
 
 - **가격**: 해당 주유소의 유종별 가격 (원/L)
 - **주유량**: 사용자가 입력한 주유 예정량 (L)
 - **거리**: 반경 기반은 직선거리, 경로 기반은 실제 우회 거리 (m → km 변환)
 - **연비**: 사용자 차량 연비 (km/L)
+- **우회 시간**: 경로 기반에서 Kakao API가 반환하는 경유 소요 시간 - 기본 소요 시간 (초)
+- **최저시급**: 2025년 기준 10,030원/시간 (반경 기반에서는 우회 시간 0으로 항 생략)
 
 ---
 
@@ -79,7 +81,7 @@ flowchart TD
 
 ## 2. 경로 기반 추천
 
-출발지 → 도착지 경로 상에서 경유 시 **총 비용(주유비 + 우회 연료비)이 최소**인 주유소를 추천한다.
+출발지 → 도착지 경로 상에서 경유 시 **총 비용(주유비 + 우회 연료비 + 우회 시간 비용)이 최소**인 주유소를 추천한다.
 
 ### API
 
@@ -122,8 +124,8 @@ sequenceDiagram
 
     loop 후보마다 (price lower bound 초과 시 조기 종료)
         Server->>Kakao: 경유 경로 조회 (출발 → 주유소 → 도착)
-        Kakao-->>Server: 경유 시 총 거리
-        Note over Server: 실제 우회 거리로 점수 계산<br/>top-limit 확보 후 pruning 판단
+        Kakao-->>Server: 경유 시 총 거리 + 총 소요 시간
+        Note over Server: 실제 우회 거리·시간으로 점수 계산<br/>top-limit 확보 후 pruning 판단
     end
 
     Note over Server: 최종 점수 오름차순 → 상위 limit개 선택
@@ -160,7 +162,7 @@ flowchart TD
     H -->|예 (이후 모든 후보 pruning 가능)| J
     H -->|아니오| I
 
-    I["⑧ Kakao 경유 경로 조회<br/>출발 → 주유소 → 도착<br/>실제 우회 거리 = 경유 거리 - 기본 거리<br/>음수이면 0으로 보정<br/>점수 = 주유비 + 실제 우회 연료비"]
+    I["⑧ Kakao 경유 경로 조회<br/>출발 → 주유소 → 도착<br/>우회 거리 = 경유 거리 - 기본 거리 (음수 → 0 보정)<br/>우회 시간 = 경유 시간 - 기본 시간 (음수 → 0 보정)<br/>점수 = 주유비 + 우회 연료비 + 우회 시간×최저시급"]
     I --> H2["top-limit 확보 시 kth 점수 갱신"]
     H2 --> H
 
@@ -170,10 +172,10 @@ flowchart TD
 
 ### price lower bound가 보장하는 것
 
-점수 공식에서 우회 거리는 항상 0 이상이므로:
+점수 공식에서 우회 거리와 우회 시간은 항상 0 이상이므로:
 
 $$
-\text{score} = \text{가격} \times \text{주유량} + \underbrace{\dfrac{\text{우회}_{km}}{\text{연비}} \times \text{가격}}_{\geq\ 0}
+\text{score} = \text{가격} \times \text{주유량} + \underbrace{\dfrac{\text{우회}_{km}}{\text{연비}} \times \text{가격}}_{\geq\ 0} + \underbrace{\dfrac{\text{우회 시간}_{s}}{3600} \times \text{최저시급}}_{\geq\ 0}
 \ \geq\ \text{가격} \times \text{주유량}
 $$
 
@@ -221,7 +223,8 @@ Kakao 실제 계산:  8,000m 이상
     "longitude": 127.0,
     "price": 1650,
     "distance": 1200.0,
-    "score": 67980.0,
+    "durationSeconds": 480,
+    "score": 67535.3,
     "isActualDetour": true
   }
 ]
@@ -232,5 +235,6 @@ Kakao 실제 계산:  8,000m 이상
 | opinetStationId | OPINET 고유 주유소 ID |
 | price | 요청 유종 가격 (원/L) |
 | distance | 반경 기반: 직선거리(m) / 경로 기반: 실제 우회 거리(m) |
+| durationSeconds | 우회 소요 시간(초), 경로 기반에서만 값이 있음 |
 | score | 점수 (낮을수록 유리) |
 | isActualDetour | `false`: 직선거리 추정 / `true`: Kakao 실제 도로 거리 |
