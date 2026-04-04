@@ -12,8 +12,8 @@ class ScoredGasStation(
         private const val METERS_PER_KM = 1000.0
         private const val SECONDS_PER_HOUR = 3600.0
 
-        // 2025년 최저시급 (원/시간) — 우회 시간 비용 산정 기준
-        private const val MINIMUM_WAGE_PER_HOUR = 10030.0
+        // 2026년 최저시급 (원/시간) — 우회 시간 비용 산정 기준
+        private const val MINIMUM_WAGE_PER_HOUR = 10320.0
 
         fun of(
             station: GasStation,
