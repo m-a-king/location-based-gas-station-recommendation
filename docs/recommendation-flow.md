@@ -118,15 +118,15 @@ sequenceDiagram
 
     Server->>DB: 남은 주유소의 유종별 가격 조회
     DB-->>Server: 가격 정보
-    Note over Server: 가격 없는 주유소 제외
-    Note over Server: 우회 거리 추정 → 점수 계산 → 상위 limit×3개로 축소
+    Note over Server: 가격 없는 주유소 제외<br/>가격 오름차순 정렬
 
-    loop 1차 통과 후보마다 (최대 limit×3회)
+    loop 후보마다 (price lower bound 초과 시 조기 종료)
         Server->>Kakao: 경유 경로 조회 (출발 → 주유소 → 도착)
         Kakao-->>Server: 경유 시 총 거리
+        Note over Server: 실제 우회 거리로 점수 계산<br/>top-limit 확보 후 pruning 판단
     end
 
-    Note over Server: 실제 우회 거리로 점수 재계산 → 상위 limit개 선택
+    Note over Server: 최종 점수 오름차순 → 상위 limit개 선택
     Server-->>Client: 추천 결과 반환
 ```
 
@@ -153,31 +153,37 @@ flowchart TD
     F -->|가격 없음| DISC2[제외]
     F -->|가격 있음| G
 
-    G["⑥ 1차 점수 계산 — 직선거리 추정<br/>경로 이탈 거리를 왕복으로 추정<br/>점수 = 주유비 + 이탈 연료비"]
+    G["⑥ 가격 오름차순 정렬<br/>price lower bound 탐색을 위한 준비"]
     G --> H
 
-    H["⑦ 1차 정렬 및 축소<br/>점수 오름차순 → 상위 limit×3개만 유지<br/>(Kakao API 호출 횟수 제한)"]
-    H --> I
+    H{"⑦ price lower bound 검사<br/>price × 주유량 > k번째 최선 점수?"}
+    H -->|예 (이후 모든 후보 pruning 가능)| J
+    H -->|아니오| I
 
-    I["⑧ 2차 점수 계산 — 실제 우회 거리<br/>Kakao API: 출발 → 주유소 → 도착<br/>실제 우회 거리 = 경유 거리 - 기본 거리<br/>음수이면 0으로 보정 (Kakao 측정 오차 대응)<br/>점수 = 주유비 + 실제 우회 연료비"]
-    I --> J
+    I["⑧ Kakao 경유 경로 조회<br/>출발 → 주유소 → 도착<br/>실제 우회 거리 = 경유 거리 - 기본 거리<br/>음수이면 0으로 보정<br/>점수 = 주유비 + 실제 우회 연료비"]
+    I --> H2["top-limit 확보 시 kth 점수 갱신"]
+    H2 --> H
 
-    J["⑨ 최종 정렬 및 선택<br/>점수 오름차순 → 상위 N개"]
+    J["⑨ 최종 정렬 및 선택<br/>점수 오름차순 → 상위 limit개"]
     J --> K([추천 결과 반환])
 ```
 
-### 1차 필터가 필요한 이유
+### price lower bound가 보장하는 것
 
-Corridor 안에 후보가 수십 개일 수 있고, Kakao API는 외부 호출이므로 비용이 크다.
-직선거리 기반 추정 점수로 명백히 불리한 후보를 먼저 제거해 **2차 API 호출을 `limit×3`회로 제한**한다.
+점수 공식에서 우회 거리는 항상 0 이상이므로:
 
-| limit | 1차 후보 최대 | 2차 Kakao 호출 최대 |
-|-------|------------|------------------|
-| 1 | 3개 | 3회 |
-| 3 | 9개 | 9회 |
-| 5 | 15개 | 15회 |
+$$
+\text{score} = \text{가격} \times \text{주유량} + \underbrace{\dfrac{\text{우회}_{km}}{\text{연비}} \times \text{가격}}_{\geq\ 0}
+\ \geq\ \text{가격} \times \text{주유량}
+$$
 
-### 직선거리 추정의 한계 (2차 API가 필요한 이유)
+즉 `가격 × 주유량`은 score의 **수학적 하한(lower bound)**이다.
+
+후보를 가격 오름차순으로 탐색하면서 top-limit 결과가 확보된 후, `price × 주유량 > k번째 최선 score`이면 그 이후 모든 후보도 같은 조건을 만족하므로 Kakao API를 호출하지 않고 탐색을 종료할 수 있다.
+
+이 방식은 **최적해(상위 limit개)를 반드시 포함한다**는 수학적 보장을 가지면서, 실제로는 Kakao API 호출을 최소화한다.
+
+### 직선거리 기반 추정을 사용하지 않는 이유
 
 ```
 폴리라인 바로 옆 200m 주유소라도
@@ -189,7 +195,7 @@ Corridor 안에 후보가 수십 개일 수 있고, Kakao API는 외부 호출�
 Kakao 실제 계산:  8,000m 이상
 ```
 
-직선거리만으로 추천하면 "가깝지만 고속도로라 진입 불가"인 주유소가 상위에 뜰 수 있다.
+직선거리 왕복은 실제 도로 우회 거리의 하한이 아니다. 직선거리 기반 필터로 후보를 줄이면 최적 주유소가 잘려나갈 수 있다.
 
 ---
 
@@ -198,7 +204,7 @@ Kakao 실제 계산:  8,000m 이상
 | | 반경 기반 | 경로 기반 |
 |--|---------|---------|
 | OPINET | 1회 | 0회 |
-| Kakao Directions | 0회 | 1 + limit×3회 (최대 10회) |
+| Kakao Directions | 0회 | 1 + N회 (N은 price lower bound pruning에 따라 가변, 최소 limit회) |
 | DB 조회 | 0회 | 2회 (주유소, 가격) |
 
 ---
