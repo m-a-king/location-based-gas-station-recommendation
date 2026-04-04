@@ -35,7 +35,7 @@ class GasStationController(
         @Parameter(description = "유종 (GASOLINE=휘발유, DIESEL=경유, PREMIUM_GASOLINE=고급휘발유, LPG)", example = "GASOLINE") @RequestParam fuelType: FuelType,
         @Parameter(description = "주유량 (L)", example = "40.0") @RequestParam @Positive refuelLiters: Double,
         @Parameter(description = "차량 연비 (km/L)", example = "12.0") @RequestParam @Positive fuelEfficiency: Double,
-        @Parameter(description = "추천 개수 (최대 5)", example = "3") @RequestParam @Positive @Max(5) limit: Int
+        @Parameter(description = "추천 개수 (최대 3)", example = "3") @RequestParam @Positive @Max(3) limit: Int
     ): List<GasStationResponse> {
         val userLocation = Coordinate.fromWgs84(Coordinate.Wgs84(latitude, longitude))
 
@@ -53,7 +53,7 @@ class GasStationController(
         @Parameter(description = "유종 (GASOLINE=휘발유, DIESEL=경유, PREMIUM_GASOLINE=고급휘발유, LPG)", example = "GASOLINE") @RequestParam fuelType: FuelType,
         @Parameter(description = "주유량 (L)", example = "40.0") @RequestParam @Positive refuelLiters: Double,
         @Parameter(description = "차량 연비 (km/L)", example = "12.0") @RequestParam @Positive fuelEfficiency: Double,
-        @Parameter(description = "추천 개수 (최대 5)", example = "3") @RequestParam @Positive @Max(5) limit: Int
+        @Parameter(description = "추천 개수 (최대 3)", example = "3") @RequestParam @Positive @Max(3) limit: Int
     ): List<GasStationResponse> {
         val origin = Coordinate.fromWgs84(Coordinate.Wgs84(originLatitude, originLongitude))
         val destination = Coordinate.fromWgs84(Coordinate.Wgs84(destinationLatitude, destinationLongitude))

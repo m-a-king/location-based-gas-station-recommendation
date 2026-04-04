@@ -33,7 +33,7 @@ class GasStationControllerTest(
     }
 
     @Test
-    fun `limit 범위를 초과하면 400을 반환한다`() {
+    fun `limit이 3을 초과하면 400을 반환한다`() {
         mockMvc.get("/api/gas-stations/recommendations/radius") {
             param("latitude", "37.0")
             param("longitude", "127.0")
@@ -97,7 +97,7 @@ class GasStationControllerTest(
     }
 
     @Test
-    fun `경로 API에서 limit이 5를 초과하면 400을 반환한다`() {
+    fun `경로 API에서 limit이 3을 초과하면 400을 반환한다`() {
         mockMvc.get("/api/gas-stations/recommendations/route") {
             param("originLatitude", "37.0")
             param("originLongitude", "127.0")
