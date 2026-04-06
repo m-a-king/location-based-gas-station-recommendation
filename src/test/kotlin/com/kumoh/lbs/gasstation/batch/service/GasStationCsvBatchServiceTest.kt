@@ -180,7 +180,7 @@ class GasStationCsvBatchServiceTest {
         service.importFromCsv(path, charset)
 
         val captor = argumentCaptor<List<GasStation>>()
-        verify(batchWriter).saveBatch(captor.capture())
+        verify(batchWriter).saveBatch(captor.capture(), any())
         val saved = captor.firstValue[0]
         saved.name shouldBe "ST001"
     }
@@ -193,7 +193,7 @@ class GasStationCsvBatchServiceTest {
         service.importFromCsv(path, charset)
 
         val captor = argumentCaptor<List<GasStation>>()
-        verify(batchWriter).saveBatch(captor.capture())
+        verify(batchWriter).saveBatch(captor.capture(), any())
         val saved = captor.firstValue[0]
         saved.brand shouldBe "SK에너지"
     }
@@ -206,7 +206,7 @@ class GasStationCsvBatchServiceTest {
         service.importFromCsv(path, charset)
 
         val captor = argumentCaptor<List<GasStation>>()
-        verify(batchWriter).saveBatch(captor.capture())
+        verify(batchWriter).saveBatch(captor.capture(), any())
         val saved = captor.firstValue[0]
         saved.brand shouldBe "기타"
     }
@@ -219,7 +219,7 @@ class GasStationCsvBatchServiceTest {
         service.importFromCsv(path, charset)
 
         val captor = argumentCaptor<List<GasStation>>()
-        verify(batchWriter).saveBatch(captor.capture())
+        verify(batchWriter).saveBatch(captor.capture(), any())
         captor.firstValue[0].isSelf shouldBe true
     }
 
@@ -231,7 +231,7 @@ class GasStationCsvBatchServiceTest {
         service.importFromCsv(path, charset)
 
         val captor = argumentCaptor<List<GasStation>>()
-        verify(batchWriter).saveBatch(captor.capture())
+        verify(batchWriter).saveBatch(captor.capture(), any())
         captor.firstValue[0].isSelf shouldBe true
     }
 
@@ -259,7 +259,7 @@ class GasStationCsvBatchServiceTest {
 
         service.importFromCsv(path, charset)
 
-        verify(batchWriter, times(1)).saveBatch(any())
+        verify(batchWriter, times(1)).saveBatch(any(), any())
     }
 
     @Test
@@ -272,7 +272,7 @@ class GasStationCsvBatchServiceTest {
 
         // saveBatch가 50건 + 1건으로 2번 나뉘어 호출됨
         // 서비스가 가변 리스트를 재사용하므로 배치 크기는 result.saved로 간접 검증
-        verify(batchWriter, times(2)).saveBatch(any())
+        verify(batchWriter, times(2)).saveBatch(any(), any())
         result.saved shouldBe 51
     }
 
@@ -311,6 +311,6 @@ class GasStationCsvBatchServiceTest {
         val result = service.importFromCsv(path, charset)
 
         result.unchanged shouldBe true
-        verify(batchWriter, never()).saveBatch(any())
+        verify(batchWriter, never()).saveBatch(any(), any())
     }
 }
