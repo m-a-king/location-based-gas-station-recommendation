@@ -235,6 +235,6 @@ Kakao 실제 계산:  8,000m 이상
 | opinetStationId | OPINET 고유 주유소 ID |
 | price | 요청 유종 가격 (원/L) |
 | distance | 반경 기반: 직선거리(m) / 경로 기반: 실제 우회 거리(m) |
-| durationSeconds | 우회 소요 시간(초), 경로 기반에서만 값이 있음 |
+| durationSeconds | 우회 소요 시간(초), 반경 기반에서는 0 |
 | score | 점수 (낮을수록 유리) |
 | isActualDetour | `false`: 직선거리 추정 / `true`: Kakao 실제 도로 거리 |
