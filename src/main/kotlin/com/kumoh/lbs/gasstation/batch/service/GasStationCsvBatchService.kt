@@ -24,8 +24,8 @@ class GasStationCsvBatchService(
     companion object {
         private const val BATCH_SIZE = 50
 
-        private val STATION_ID_COLS = setOf("주유소코드", "UNI_ID", "주유소ID")
-        private val NAME_COLS = setOf("주유소명", "OS_NM", "상호명")
+        private val STATION_ID_COLS = setOf("주유소코드", "UNI_ID", "주유소ID", "고유번호")
+        private val NAME_COLS = setOf("주유소명", "OS_NM", "상호명", "상호")
         private val BRAND_COLS = setOf("상표", "POLL_DIV_NM", "브랜드")
         private val ADDRESS_COLS = setOf("주소", "NEW_ADR", "VAN_ADR", "도로명주소", "지번주소")
         private val SELF_COLS = setOf("셀프여부", "SELF_YN")

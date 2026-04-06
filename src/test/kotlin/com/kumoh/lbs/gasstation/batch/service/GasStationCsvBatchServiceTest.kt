@@ -288,6 +288,19 @@ class GasStationCsvBatchServiceTest {
         result.saved shouldBe 1
     }
 
+    @Test
+    fun `OPINET 현재 판매가격 CSV 헤더 형식을 인식한다`() {
+        val path = csvFile("opinet_current_price.csv",
+            "고유번호,지역,상호,주소,상표,셀프여부,고급휘발유,휘발유,경유,실내등유\n" +
+                "ST001,서울,테스트주유소,서울 강남구 테헤란로 1,SKE,N,1900,1600,1400,1200"
+        )
+        whenever(kakaoLocalClient.resolveCoordinates(any())).thenReturn(Coordinate.Wgs84(37.5, 127.0))
+
+        val result = service.importFromCsv(path, charset)
+
+        result.saved shouldBe 1
+    }
+
     // ─── 스킵 정책 ───────────────────────────────────────────────────────────
 
     @Test
