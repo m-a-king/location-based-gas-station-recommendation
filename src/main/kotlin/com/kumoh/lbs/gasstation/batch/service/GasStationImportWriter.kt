@@ -3,6 +3,8 @@ package com.kumoh.lbs.gasstation.batch.service
 import com.kumoh.lbs.gasstation.batch.domain.OpinetCsvHistory
 import com.kumoh.lbs.gasstation.batch.repository.OpinetCsvHistoryRepository
 import com.kumoh.lbs.gasstation.domain.GasStation
+import com.kumoh.lbs.gasstation.domain.GasStationPrice
+import com.kumoh.lbs.gasstation.repository.GasStationPriceRepository
 import com.kumoh.lbs.gasstation.repository.GasStationRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
@@ -13,12 +15,16 @@ private val logger = KotlinLogging.logger {}
 @Service
 class GasStationImportWriter(
     private val gasStationRepository: GasStationRepository,
+    private val gasStationPriceRepository: GasStationPriceRepository,
     private val historyRepository: OpinetCsvHistoryRepository
 ) {
     @Transactional
-    fun saveBatch(stations: List<GasStation>) {
+    fun saveBatch(stations: List<GasStation>, prices: List<GasStationPrice> = emptyList()) {
         gasStationRepository.saveAll(stations)
-        logger.debug { "${stations.size}건 저장 완료" }
+        if (prices.isNotEmpty()) {
+            gasStationPriceRepository.saveAll(prices)
+        }
+        logger.debug { "${stations.size}건 저장, 가격 ${prices.size}건 저장 완료" }
     }
 
     fun isUnchanged(fileName: String, hash: String): Boolean =

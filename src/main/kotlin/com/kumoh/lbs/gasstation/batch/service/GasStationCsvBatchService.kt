@@ -2,9 +2,13 @@ package com.kumoh.lbs.gasstation.batch.service
 
 import com.kumoh.lbs.gasstation.batch.client.KakaoLocalClient
 import com.kumoh.lbs.gasstation.repository.GasStationRepository
+import com.kumoh.lbs.gasstation.domain.FuelType
 import com.kumoh.lbs.gasstation.domain.GasStation
+import com.kumoh.lbs.gasstation.domain.GasStationPrice
+import com.kumoh.lbs.gasstation.domain.GasStationPriceId
 import com.kumoh.lbs.gasstation.domain.StationType
 import com.kumoh.lbs.geo.Coordinate
+import java.time.LocalDate
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.apache.commons.csv.CSVFormat
 import org.apache.commons.csv.CSVRecord
@@ -31,6 +35,13 @@ class GasStationCsvBatchService(
         private val SELF_COLS = setOf("셀프여부", "SELF_YN")
         private val SELF_VALUES = setOf("Y", "셀프")
         private const val BOM = '\uFEFF'
+
+        private val FUEL_PRICE_COLS = mapOf(
+            FuelType.GASOLINE to setOf("휘발유"),
+            FuelType.DIESEL to setOf("경유"),
+            FuelType.PREMIUM_GASOLINE to setOf("고급휘발유"),
+            FuelType.LPG to setOf("LPG")
+        )
     }
 
     fun importFromCsv(
@@ -59,7 +70,8 @@ class GasStationCsvBatchService(
         var saved = 0
         var badRows = 0
         var geocodeErrors = 0
-        val batch = mutableListOf<GasStation>()
+        val stationBatch = mutableListOf<GasStation>()
+        val priceBatch = mutableListOf<GasStationPrice>()
 
         val existingCoords: Map<String, Coordinate.Wgs84> = gasStationRepository.findAllCoord()
             .associate { it.id to Coordinate.Wgs84(it.latitude, it.longitude) }
@@ -68,17 +80,24 @@ class GasStationCsvBatchService(
         file.bufferedReader(charset).use { reader ->
             val csvParser = CSV_FORMAT.parse(reader)
             val cols = ColumnNames.from(csvParser.headerNames)
+            val priceCols = resolvePriceColumns(csvParser.headerNames)
             logger.info { "헤더 인식: ${csvParser.headerNames.map { it.trimStart(BOM) }}" }
+            logger.info { "가격 컬럼: ${priceCols.map { "${it.key} → ${it.value}" }}" }
+
+            val today = LocalDate.now()
 
             csvParser.forEachIndexed { index, record ->
                 val rowNum = index + 2  // 1-based, header is row 1
                 when (val result = toGasStation(record, cols, rowNum, existingCoords)) {
                     is RowResult.Success -> {
-                        batch += result.station
+                        val station = result.station
+                        stationBatch += station
+                        priceBatch += parsePrices(record, priceCols, station, today)
                         saved++
-                        if (batch.size >= BATCH_SIZE) {
-                            batchWriter.saveBatch(batch)
-                            batch.clear()
+                        if (stationBatch.size >= BATCH_SIZE) {
+                            batchWriter.saveBatch(stationBatch, priceBatch)
+                            stationBatch.clear()
+                            priceBatch.clear()
                         }
                     }
                     is RowResult.ValidationFailure -> badRows++
@@ -86,11 +105,40 @@ class GasStationCsvBatchService(
                 }
             }
 
-            if (batch.isNotEmpty()) batchWriter.saveBatch(batch)
+            if (stationBatch.isNotEmpty()) batchWriter.saveBatch(stationBatch, priceBatch)
         }
 
         return ImportResult(saved = saved, badRows = badRows, geocodeErrors = geocodeErrors)
     }
+
+    private fun resolvePriceColumns(headers: List<String>): Map<FuelType, String> {
+        val normalized = headers.map { it.trimStart(BOM) }
+        val result = mutableMapOf<FuelType, String>()
+        for ((fuelType, candidates) in FUEL_PRICE_COLS) {
+            val idx = normalized.indexOfFirst { it in candidates }
+            if (idx >= 0) result[fuelType] = headers[idx]
+        }
+        return result
+    }
+
+    private fun parsePrices(
+        record: CSVRecord,
+        priceCols: Map<FuelType, String>,
+        station: GasStation,
+        today: LocalDate
+    ): List<GasStationPrice> =
+        priceCols.mapNotNull { (fuelType, colName) ->
+            val raw = record.get(colName).trim()
+            val price = raw.replace(",", "").toIntOrNull()
+            if (price != null && price > 0) {
+                GasStationPrice(
+                    id = GasStationPriceId(stationId = station.id, fuelType = fuelType),
+                    station = station,
+                    price = price,
+                    updatedAt = today
+                )
+            } else null
+        }
 
     private fun toGasStation(
         record: CSVRecord,
