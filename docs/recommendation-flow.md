@@ -114,9 +114,9 @@ sequenceDiagram
     Server->>Kakao: 기본 경로 조회 (출발지 → 도착지)
     Kakao-->>Server: 경로 폴리라인, 총 거리
 
-    Server->>DB: 경로 주변 주유소 조회
-    DB-->>Server: 범위 내 주유소 목록
-    Note over Server: 경로에서 2km 초과 주유소 제외
+    Server->>DB: 경로 폴리라인의 MBR + 2km 버퍼 범위로 주유소 조회
+    DB-->>Server: MBR 범위 내 주유소 목록
+    Note over Server: Corridor 필터: 경로에서 2km 초과 주유소 제외
 
     Server->>DB: 남은 주유소의 유종별 가격 조회
     DB-->>Server: 가격 정보
@@ -141,7 +141,7 @@ flowchart TD
     B["① 기본 경로 조회<br/>Kakao API: 출발 → 도착<br/>결과: 경로 폴리라인 + 총 거리"]
     B --> C
 
-    C["② 경로 주변 주유소 조회<br/>경로를 감싸는 사각형 + 2km 버퍼로 DB 조회<br/>DB는 사각형 범위 조회만 빠름<br/>정밀 필터는 다음 단계에서 수행"]
+    C["② MBR 기반 후보 조회<br/>경로 폴리라인의 MBR(Minimum Bounding Rectangle) + 2km 버퍼로 DB 조회<br/>DB는 사각형 범위 조회만 빠름<br/>정밀 필터는 다음 단계에서 수행"]
     C --> D
 
     D{"③ Corridor 필터<br/>각 주유소와 경로 최단 거리 계산"}
