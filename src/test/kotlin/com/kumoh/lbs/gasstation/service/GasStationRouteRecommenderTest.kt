@@ -43,25 +43,25 @@ class GasStationRouteRecommenderTest {
     private val origin = wgs84(37.0, 127.0)
     private val destination = wgs84(37.1, 127.0)
 
-    // ─── corridor 필터 ───────────────────────────────────────────────────────
+    // ─── POLYLINE_MBR 단계 ───────────────────────────────────────────────────
 
     @Test
-    fun `경로에서 2km 이상 떨어진 주유소는 후보에서 제외된다`() {
+    fun `후보가 적으면 POLYLINE_MBR 단계에서 MBR 버퍼 내 주유소 모두 통과한다`() {
+        // 새 cascade: 후보 ≤ 30이면 TIGHT_CORRIDOR 필터 발동 안 함 → MBR 버퍼(5km) 안 주유소는 모두 유지
         whenever(kakaoDirectionsClient.searchRoute(any(), any())).thenReturn(baseRoute)
-        // 폴리라인(lon=127.0)에서 약 2.2km 동쪽 → corridor 밖
-        val outsideStation = gasStation("OUT", lat = 37.05, lon = 127.025)
-        val insideStation  = gasStation("IN",  lat = 37.05, lon = 127.015)
+        val farStation  = gasStation("FAR",  lat = 37.05, lon = 127.025) // polyline 기준 약 2.2km
+        val nearStation = gasStation("NEAR", lat = 37.05, lon = 127.015)
 
-        whenever(gasStationRepository.findInBounds(any())).thenReturn(listOf(outsideStation, insideStation))
+        whenever(gasStationRepository.findInBounds(any())).thenReturn(listOf(farStation, nearStation))
         whenever(gasStationPriceRepository.findAllByIdStationIdInAndIdFuelType(any(), any()))
-            .thenReturn(listOf(price("IN", 1500)))
+            .thenReturn(listOf(price("FAR", 1500), price("NEAR", 1500)))
         whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), any()))
             .thenReturn(Route(polyline = polyline, distanceMeters = 11500))
 
         val result = recommender.recommend(origin, destination, FuelType.GASOLINE, 40.0, 10.0, limit = 5)
 
-        result shouldHaveSize 1
-        result[0].station.id shouldBe "IN"
+        result shouldHaveSize 2
+        result.map { it.station.id }.toSet() shouldBe setOf("FAR", "NEAR")
     }
 
     // ─── 가격 없는 주유소 제외 ───────────────────────────────────────────────
@@ -145,7 +145,7 @@ class GasStationRouteRecommenderTest {
 
         val result = recommender.recommend(origin, destination, FuelType.GASOLINE, 40.0, 10.0, limit = 1)
 
-        result[0].distance shouldBeExactly 0.0
+        result[0].detourDistanceMeters shouldBeExactly 0.0
         result[0].isActualDetour shouldBe true
     }
 

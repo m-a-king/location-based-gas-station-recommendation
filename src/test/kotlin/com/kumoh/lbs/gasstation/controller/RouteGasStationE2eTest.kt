@@ -65,14 +65,12 @@ class RouteGasStationE2eTest(
         whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), coordAt(37.05, 127.05)))
             .thenReturn(route(distanceMeters = 15200))
         whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), coordAt(37.065, 127.05)))
-            .thenReturn(route(distanceMeters = 21000))
+            .thenReturn(route(distanceMeters = 19000))
         whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), coordAt(37.03, 127.03)))
             .thenReturn(route(distanceMeters = 15100))
 
-        // 점수 계산 (40L, 10km/L):
-        // OFF_ROUTE:  1500×40 + (6000/1000/10×1500) = 60000 + 900  = 60900 (1위)
-        // ON_ROUTE:   1650×40 + ( 200/1000/10×1650) = 66000 +  33  = 66033 (2위)
-        // EXPENSIVE:  1900×40 + ( 100/1000/10×1900) = 76000 +  19  = 76019 (3위)
+        // 우회 상한 = min(15000 × 0.3, 10000) = 4500m — OFF_ROUTE 우회 4000m 통과
+        // OFF_ROUTE가 가장 싸고 우회 상한 이내이므로 총 비용 기준 1위
         mockMvc.get("/api/gas-stations/recommendations/route") {
             param("originLongitude", "127.0")
             param("originLatitude", "37.0")
@@ -86,8 +84,33 @@ class RouteGasStationE2eTest(
             status { isOk() }
             jsonPath("$.length()") { value(3) }
             jsonPath("$[0].opinetStationId") { value("OFF_ROUTE") }
-            jsonPath("$[1].opinetStationId") { value("ON_ROUTE") }
-            jsonPath("$[2].opinetStationId") { value("EXPENSIVE") }
+        }
+    }
+
+    @Test
+    fun `우회 상한을 초과하는 주유소는 가격이 싸도 추천에서 제외된다`() {
+        saveStations(onRouteStation, cheapOffRouteStation)
+        savePrices(mapOf("ON_ROUTE" to 1650, "OFF_ROUTE" to 1500))
+
+        whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), coordAt(37.05, 127.05)))
+            .thenReturn(route(distanceMeters = 15200))
+        // OFF_ROUTE 우회 6000m > 상한 4500m → 제외
+        whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), coordAt(37.065, 127.05)))
+            .thenReturn(route(distanceMeters = 21000))
+
+        mockMvc.get("/api/gas-stations/recommendations/route") {
+            param("originLongitude", "127.0")
+            param("originLatitude", "37.0")
+            param("destinationLongitude", "127.1")
+            param("destinationLatitude", "37.1")
+            param("fuelType", "GASOLINE")
+            param("refuelLiters", "40.0")
+            param("fuelEfficiency", "10.0")
+            param("limit", "3")
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.length()") { value(1) }
+            jsonPath("$[0].opinetStationId") { value("ON_ROUTE") }
         }
     }
 
