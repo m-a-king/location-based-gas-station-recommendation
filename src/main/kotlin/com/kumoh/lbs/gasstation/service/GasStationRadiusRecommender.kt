@@ -27,7 +27,16 @@ class GasStationRadiusRecommender(
         logger.info { "주변 주유소 검색: ${stations.size}건, radius=$radius" }
 
         return stations
-            .map { ScoredGasStation.of(it.station, it.price, it.distanceMeters, refuelLiters, fuelEfficiency) }
+            .map {
+                ScoredGasStation(
+                    station = it.station,
+                    price = it.price,
+                    detourDistanceMeters = it.distanceMeters,
+                    detourSeconds = 0,
+                    refuelLiters = refuelLiters,
+                    fuelEfficiency = fuelEfficiency
+                )
+            }
             .sortedBy { it.score }
             .take(limit)
     }
