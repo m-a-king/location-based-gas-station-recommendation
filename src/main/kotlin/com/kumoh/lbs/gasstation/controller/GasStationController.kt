@@ -39,8 +39,8 @@ class GasStationController(
     ): List<GasStationResponse> {
         val userLocation = Coordinate.fromWgs84(Coordinate.Wgs84(latitude, longitude))
 
-        return radiusRecommender.recommend(userLocation, radius, fuelType, refuelLiters, fuelEfficiency, limit)
-            .map { GasStationResponse.from(it) }
+        val scored = radiusRecommender.recommend(userLocation, radius, fuelType, refuelLiters, fuelEfficiency, limit)
+        return GasStationResponse.fromList(scored)
     }
 
     @Operation(summary = "경로 기반 추천", description = "출발지→도착지 경로 상에서 경유 시 총 비용이 최소화되는 주유소를 추천합니다.")
@@ -58,7 +58,7 @@ class GasStationController(
         val origin = Coordinate.fromWgs84(Coordinate.Wgs84(originLatitude, originLongitude))
         val destination = Coordinate.fromWgs84(Coordinate.Wgs84(destinationLatitude, destinationLongitude))
 
-        return routeRecommender.recommend(origin, destination, fuelType, refuelLiters, fuelEfficiency, limit)
-            .map { GasStationResponse.from(it) }
+        val scored = routeRecommender.recommend(origin, destination, fuelType, refuelLiters, fuelEfficiency, limit)
+        return GasStationResponse.fromList(scored)
     }
 }
