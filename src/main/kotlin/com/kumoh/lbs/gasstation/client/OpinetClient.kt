@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.kumoh.lbs.geo.Coordinate
 import com.kumoh.lbs.gasstation.domain.FuelType
 import com.kumoh.lbs.gasstation.domain.GasStation
-import com.kumoh.lbs.gasstation.domain.NearbyGasStation
+import com.kumoh.lbs.gasstation.domain.NearbyPricedGasStation
 import com.kumoh.lbs.gasstation.domain.PricedGasStation
 import com.kumoh.lbs.infra.ExternalApiException
 import com.kumoh.lbs.infra.OpinetProperties
@@ -36,7 +36,7 @@ class OpinetClient(
         radius: Int,
         fuelType: FuelType,
         sort: SortType
-    ): List<NearbyGasStation> {
+    ): List<NearbyPricedGasStation> {
         return try {
             val response = opinetRestClient.get()
                 .uri {
@@ -54,7 +54,7 @@ class OpinetClient(
                 .body(object : ParameterizedTypeReference<OpinetResponse>() {})
                 ?: throw ExternalApiException("OPINET API가 예상치 못한 응답을 반환했습니다.")
 
-            response.result.stations.map { it.toNearbyGasStation() }
+            response.result.stations.map { it.toNearbyPricedGasStation() }
         } catch (e: ExternalApiException) {
             throw e
         } catch (e: Exception) {
@@ -81,7 +81,7 @@ private data class OpinetStation(
     @JsonProperty("GIS_X_COOR") val katecX: Double,
     @JsonProperty("GIS_Y_COOR") val katecY: Double
 ) {
-    fun toNearbyGasStation(): NearbyGasStation {
+    fun toNearbyPricedGasStation(): NearbyPricedGasStation {
         val wgs84 = Coordinate.fromKatec(Coordinate.Katec(katecX, katecY)).wgs84
         val station = GasStation(
             id = stationId,
@@ -90,7 +90,7 @@ private data class OpinetStation(
             latitude = wgs84.latitude,
             longitude = wgs84.longitude
         )
-        return NearbyGasStation(
+        return NearbyPricedGasStation(
             priced = PricedGasStation(station, price),
             distanceMeters = distance
         )
