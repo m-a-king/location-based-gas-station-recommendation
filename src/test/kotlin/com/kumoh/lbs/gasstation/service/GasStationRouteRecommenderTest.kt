@@ -11,6 +11,7 @@ import com.kumoh.lbs.gasstation.repository.GasStationPriceRepository
 import com.kumoh.lbs.gasstation.repository.GasStationRepository
 import com.kumoh.lbs.geo.Coordinate
 import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.doubles.shouldBeExactly
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.AfterEach
@@ -18,9 +19,12 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argThat
+import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import kotlin.math.abs
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
@@ -133,6 +137,35 @@ class GasStationRouteRecommenderTest(
 
         result.scored[0].detourDistanceMeters shouldBeExactly 0.0
         result.scored[0].isActualDetour shouldBe true
+    }
+
+    // ─── cascade 단계 전이 ───────────────────────────────────────────────────
+
+    @Test
+    fun `후보가 N_THRESHOLD 30건을 초과하면 TIGHT_CORRIDOR 단계로 좁혀 corridor 밖 주유소를 제외한다`() {
+        // polyline: (37.0, 127.0) → (37.1, 127.0). 북쪽 직선.
+        // corridor 내 (polyline distance ≈ 450m) 주유소 30건, 가격 1600
+        repeat(30) { i ->
+            saveStation("IN_$i", lat = 37.05, lon = 127.005)
+            savePrice("IN_$i", 1600)
+        }
+        // corridor 밖 (polyline distance ≈ 3.3km, TIGHT_CORRIDOR 2000m 초과) 주유소 1건, 최저가 1500
+        // MBR buffer(≈6.6km) 안쪽이므로 1단계 수집은 통과하고 2단계에서 잘려야 한다
+        saveStation("OUT_1", lat = 37.05, lon = 127.04)
+        savePrice("OUT_1", 1500)
+
+        whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), any()))
+            .thenReturn(Route(polyline = polyline, distanceMeters = 11200))
+
+        val result = recommender.recommend(origin, destination, FuelType.GASOLINE, 40.0, 10.0, limit = 3)
+
+        // TIGHT_CORRIDOR 단계에서 OUT_1 제외 → 결과에 없음
+        result.scored.map { it.station.id } shouldNotContain "OUT_1"
+        // corridor 밖 좌표로는 Kakao 경유 경로 호출 자체가 없어야 한다
+        verify(kakaoDirectionsClient, never()).searchRouteViaWaypoint(
+            any(), any(),
+            argThat { abs(wgs84.longitude - 127.04) < 0.001 && abs(wgs84.latitude - 37.05) < 0.001 }
+        )
     }
 
     // ─── 도메인 방어 ─────────────────────────────────────────────────────────
