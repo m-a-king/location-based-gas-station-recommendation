@@ -5,6 +5,7 @@ import com.kumoh.lbs.gasstation.client.OpinetClient.SortType
 import com.kumoh.lbs.gasstation.domain.FuelType
 import com.kumoh.lbs.gasstation.domain.GasStation
 import com.kumoh.lbs.gasstation.domain.NearbyStation
+import com.kumoh.lbs.infra.ExternalApiException
 import org.junit.jupiter.api.Test
 import com.kumoh.lbs.TestcontainersConfiguration
 import org.mockito.kotlin.any
@@ -84,6 +85,25 @@ class GasStationE2eTest(
         }.andExpect {
             status { isOk() }
             jsonPath("$.length()") { value(1) }
+        }
+    }
+
+    @Test
+    fun `OPINET 호출이 ExternalApiException을 던지면 503과 에러 detail을 반환한다`() {
+        whenever(opinetClient.searchByRadius(any(), any(), any(), any()))
+            .thenThrow(ExternalApiException("주유소 데이터를 불러올 수 없습니다."))
+
+        mockMvc.get("/api/gas-stations/recommendations/radius") {
+            param("latitude", "38.0")
+            param("longitude", "128.0")
+            param("radius", "5000")
+            param("fuelType", "GASOLINE")
+            param("refuelLiters", "40.0")
+            param("fuelEfficiency", "10.0")
+            param("limit", "3")
+        }.andExpect {
+            status { isServiceUnavailable() }
+            jsonPath("$.detail") { value("주유소 데이터를 불러올 수 없습니다.") }
         }
     }
 
