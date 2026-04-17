@@ -22,6 +22,17 @@ import org.mockito.kotlin.whenever
 import java.io.File
 import java.nio.charset.StandardCharsets
 
+/**
+ * CSV 배치 서비스 단위 테스트.
+ *
+ * 모킹 이유:
+ * - kakaoLocalClient: 외부 HTTP(Kakao Local Geocoding) — 외부 호출이므로 모킹 허용
+ * - batchWriter: argumentCaptor로 "어떤 GasStation 리스트가 어느 배치 경계로 나뉘어 저장 요청됐는지",
+ *   "saveMetadata가 호출됐는지/안 됐는지"를 격리 검증하기 위해 모킹한다. DB 저장 결과물만으로는
+ *   배치 경계 / 메타데이터 호출 여부를 직접 확인할 수 없다.
+ * - gasStationRepository: findAllCoord() 스텁으로 "기존 좌표가 있으면 geocoding을 재호출하지 않는다"를
+ *   격리 검증. DB 조합 시나리오는 GasStationCsvBatchE2eTest에서 Testcontainers로 검증한다.
+ */
 @ExtendWith(MockitoExtension::class)
 class GasStationCsvBatchServiceTest {
 

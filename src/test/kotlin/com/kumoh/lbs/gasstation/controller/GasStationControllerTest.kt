@@ -10,6 +10,14 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 
+/**
+ * 컨트롤러 validation 격리 테스트 (@WebMvcTest 슬라이스).
+ *
+ * 모킹 이유: 이 테스트는 컨트롤러 계층의 @RequestParam 검증(@DecimalMin, @Max, @Positive, 유종 enum)이
+ * 서비스 호출 이전에 400으로 단락되는지만 검증한다. 서비스 빈을 실 구동하면 검증 관심사가 흐려지고
+ * 테스트 부팅이 무거워지므로 recommender들은 MockitoBean으로 두되 호출은 하지 않는다.
+ * 서비스·DB까지 포함된 흐름은 GasStationE2eTest / RouteGasStationE2eTest에서 검증한다.
+ */
 @WebMvcTest(GasStationController::class)
 @Import(GlobalExceptionHandler::class)
 class GasStationControllerTest(

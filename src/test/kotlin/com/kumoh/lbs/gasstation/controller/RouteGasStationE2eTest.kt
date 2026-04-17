@@ -115,7 +115,7 @@ class RouteGasStationE2eTest(
     }
 
     @Test
-    fun `경유 경로 조회 실패 시 500을 반환한다`() {
+    fun `경유 경로 조회 실패 시 해당 후보만 건너뛰고 빈 배열을 반환한다`() {
         saveStations(onRouteStation)
         savePrices(mapOf("ON_ROUTE" to 1650))
 
@@ -131,7 +131,8 @@ class RouteGasStationE2eTest(
             param("fuelEfficiency", "10.0")
             param("limit", "2")
         }.andExpect {
-            status { isInternalServerError() }
+            status { isOk() }
+            jsonPath("$.length()") { value(0) }
         }
     }
 
@@ -195,22 +196,7 @@ class RouteGasStationE2eTest(
     }
 
     @Test
-    fun `필수 파라미터가 누락되면 400을 반환한다`() {
-        mockMvc.get("/api/gas-stations/recommendations/route") {
-            param("originLongitude", "127.0")
-            param("destinationLongitude", "127.1")
-            param("destinationLatitude", "37.1")
-            param("fuelType", "GASOLINE")
-            param("refuelLiters", "40.0")
-            param("fuelEfficiency", "10.0")
-            param("limit", "3")
-        }.andExpect {
-            status { isBadRequest() }
-        }
-    }
-
-    @Test
-    fun `응답에 좌표와 점수가 포함된다`() {
+    fun `응답에 좌표, 점수, 예상 비용 필드가 포함된다`() {
         saveStations(onRouteStation)
         savePrices(mapOf("ON_ROUTE" to 1650))
         whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), any()))
@@ -231,6 +217,9 @@ class RouteGasStationE2eTest(
             jsonPath("$[0].longitude") { isNumber() }
             jsonPath("$[0].price") { value(1650) }
             jsonPath("$[0].score") { isNumber() }
+            jsonPath("$[0].estimatedFuelCost") { isNumber() }
+            jsonPath("$[0].estimatedDetourCost") { isNumber() }
+            jsonPath("$[0].estimatedSavings") { isNumber() }
         }
     }
 
