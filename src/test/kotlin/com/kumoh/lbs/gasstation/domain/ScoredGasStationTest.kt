@@ -16,8 +16,7 @@ class ScoredGasStationTest {
         fuelEfficiency: Double = 10.0,
         isActualDetour: Boolean = false
     ) = ScoredGasStation(
-        station = station,
-        price = price,
+        priced = PricedGasStation(station, price),
         detourDistanceMeters = detourDistanceMeters,
         detourSeconds = detourSeconds,
         refuelLiters = refuelLiters,

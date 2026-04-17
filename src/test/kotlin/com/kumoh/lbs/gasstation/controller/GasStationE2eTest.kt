@@ -4,7 +4,8 @@ import com.kumoh.lbs.gasstation.client.OpinetClient
 import com.kumoh.lbs.gasstation.client.OpinetClient.SortType
 import com.kumoh.lbs.gasstation.domain.FuelType
 import com.kumoh.lbs.gasstation.domain.GasStation
-import com.kumoh.lbs.gasstation.domain.NearbyStation
+import com.kumoh.lbs.gasstation.domain.NearbyPricedGasStation
+import com.kumoh.lbs.gasstation.domain.PricedGasStation
 import com.kumoh.lbs.infra.ExternalApiException
 import org.junit.jupiter.api.Test
 import com.kumoh.lbs.TestcontainersConfiguration
@@ -28,20 +29,18 @@ class GasStationE2eTest(
     @MockitoBean val opinetClient: OpinetClient
 ) {
 
-    private val cheapStation = NearbyStation(
-        station = GasStation(id = "ST001", name = "싼주유소", brand = "SKE", latitude = 38.0, longitude = 128.0),
-        price = 1600, distanceMeters = 1000.0
-    )
+    private val cheapStation = nearby("ST001", "싼주유소", brand = "SKE", price = 1600, distanceMeters = 1000.0)
+    private val closeStation = nearby("ST002", "가까운주유소", brand = "GSC", price = 1800, distanceMeters = 300.0)
+    private val expensiveStation = nearby("ST003", "비싼주유소", brand = "HDO", price = 2000, distanceMeters = 2000.0)
 
-    private val closeStation = NearbyStation(
-        station = GasStation(id = "ST002", name = "가까운주유소", brand = "GSC", latitude = 38.0, longitude = 128.0),
-        price = 1800, distanceMeters = 300.0
-    )
-
-    private val expensiveStation = NearbyStation(
-        station = GasStation(id = "ST003", name = "비싼주유소", brand = "HDO", latitude = 38.0, longitude = 128.0),
-        price = 2000, distanceMeters = 2000.0
-    )
+    private fun nearby(id: String, name: String, brand: String, price: Int, distanceMeters: Double) =
+        NearbyPricedGasStation(
+            priced = PricedGasStation(
+                station = GasStation(id = id, name = name, brand = brand, latitude = 38.0, longitude = 128.0),
+                price = price
+            ),
+            distanceMeters = distanceMeters
+        )
 
     @Test
     fun `WGS84 좌표로 주유소를 추천하면 점수순으로 정렬된 결과를 반환한다`() {

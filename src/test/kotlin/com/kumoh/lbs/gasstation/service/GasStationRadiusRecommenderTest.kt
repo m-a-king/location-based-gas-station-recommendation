@@ -4,7 +4,8 @@ import com.kumoh.lbs.gasstation.client.OpinetClient
 import com.kumoh.lbs.geo.Coordinate
 import com.kumoh.lbs.gasstation.domain.FuelType
 import com.kumoh.lbs.gasstation.domain.GasStation
-import com.kumoh.lbs.gasstation.domain.NearbyStation
+import com.kumoh.lbs.gasstation.domain.NearbyPricedGasStation
+import com.kumoh.lbs.gasstation.domain.PricedGasStation
 import com.kumoh.lbs.gasstation.domain.ScoredGasStation
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
@@ -89,9 +90,11 @@ class GasStationRadiusRecommenderTest {
     }
 
     private fun nearbyStation(id: String, name: String, price: Int, distanceMeters: Double) =
-        NearbyStation(
-            station = GasStation(id = id, name = name, brand = "SKE", latitude = 37.0, longitude = 127.0),
-            price = price,
+        NearbyPricedGasStation(
+            priced = PricedGasStation(
+                station = GasStation(id = id, name = name, brand = "SKE", latitude = 37.0, longitude = 127.0),
+                price = price
+            ),
             distanceMeters = distanceMeters
         )
 }
