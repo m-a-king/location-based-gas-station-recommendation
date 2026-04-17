@@ -168,6 +168,23 @@ class GasStationRouteRecommenderTest(
         )
     }
 
+    @Test
+    fun `후보가 HARD_CAP 30건을 초과하면 PRICE_CAPPED 단계에서 저가 상위 30건만 Kakao 호출된다`() {
+        // corridor 내 31건, 동일 가격 1500 → price lower bound pruning 무력화
+        // (동가면 kthBestScore ≥ 후보 lower bound가 성립 못 해 pruning 조건 미성립)
+        // 이 상태에서 HARD_CAP(30)가 적용되면 31 → 30건으로 잘려 Kakao 호출이 30회가 된다
+        repeat(31) { i ->
+            saveStation("P_$i", lat = 37.05, lon = 127.005)
+            savePrice("P_$i", 1500)
+        }
+        whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), any()))
+            .thenReturn(Route(polyline = polyline, distanceMeters = baseRoute.distanceMeters + 100))
+
+        recommender.recommend(origin, destination, FuelType.GASOLINE, 40.0, 10.0, limit = 3)
+
+        verify(kakaoDirectionsClient, times(30)).searchRouteViaWaypoint(any(), any(), any())
+    }
+
     // ─── 도메인 방어 ─────────────────────────────────────────────────────────
 
     @Test
