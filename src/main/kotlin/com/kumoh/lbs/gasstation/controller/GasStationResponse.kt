@@ -18,9 +18,9 @@ data class GasStationResponse(
     val estimatedSavings: Int
 ) {
     companion object {
-        fun fromList(scoredList: List<ScoredGasStation>): List<GasStationResponse> {
+        fun fromList(scoredList: List<ScoredGasStation>, maxPriceInCandidates: Int? = null): List<GasStationResponse> {
             if (scoredList.isEmpty()) return emptyList()
-            val maxPrice = scoredList.maxOf { it.price }
+            val maxPrice = maxPriceInCandidates ?: scoredList.maxOf { it.price }
             return scoredList.map { from(it, maxPrice) }
         }
 

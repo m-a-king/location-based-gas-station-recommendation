@@ -1,9 +1,11 @@
 package com.kumoh.lbs.gasstation.service
 
 import com.kumoh.lbs.gasstation.client.KakaoDirectionsClient
+import com.kumoh.lbs.gasstation.domain.CandidateCascadePolicy
 import com.kumoh.lbs.gasstation.domain.CandidateSelectionStage
 import com.kumoh.lbs.gasstation.domain.FuelType
 import com.kumoh.lbs.gasstation.domain.GasStation
+import com.kumoh.lbs.gasstation.domain.RecommendResult
 import com.kumoh.lbs.gasstation.domain.Route
 import com.kumoh.lbs.gasstation.domain.ScoredGasStation
 import com.kumoh.lbs.gasstation.repository.GasStationPriceRepository
@@ -24,14 +26,15 @@ class GasStationRouteRecommender(
 ) {
 
     companion object {
-        private const val N_THRESHOLD = 30
-        private const val HARD_CAP = 30
         private const val DETOUR_RATIO = 0.3
         private const val MAX_DETOUR_METERS = 10_000.0
-        private const val TIGHT_CORRIDOR_METERS = 2_000.0
+        private const val MBR_BUFFER_MULTIPLIER = 2.0
 
-        fun maxDetourMeters(baseDistanceMeters: Int): Double =
+        private fun maxDetourMeters(baseDistanceMeters: Int): Double =
             minOf(baseDistanceMeters * DETOUR_RATIO, MAX_DETOUR_METERS)
+
+        private fun mbrBufferMeters(baseDistanceMeters: Int): Double =
+            maxDetourMeters(baseDistanceMeters) * MBR_BUFFER_MULTIPLIER
     }
 
     fun recommend(
@@ -41,16 +44,25 @@ class GasStationRouteRecommender(
         refuelLiters: Double,
         fuelEfficiency: Double,
         limit: Int
-    ): List<ScoredGasStation> {
-        val baseRoute = fetchBaseRoute(origin, destination)
-        val candidates = gatherCandidates(baseRoute, fuelType)
-        return rankByPriceLowerBound(
-            candidates, baseRoute, origin, destination, refuelLiters, fuelEfficiency, limit
+    ): RecommendResult {
+        val baseRoute = fetchBaseRoute(origin = origin, destination = destination)
+        val candidates = gatherCandidates(baseRoute = baseRoute, fuelType = fuelType)
+        if (candidates.isEmpty()) return RecommendResult.empty()
+        val maxPrice = candidates.maxOf { (_, price) -> price }
+        val scored = rankByPriceLowerBound(
+            candidates = candidates,
+            baseRoute = baseRoute,
+            origin = origin,
+            destination = destination,
+            refuelLiters = refuelLiters,
+            fuelEfficiency = fuelEfficiency,
+            limit = limit
         )
+        return RecommendResult(scored = scored, maxPriceInCandidates = maxPrice)
     }
 
     private fun fetchBaseRoute(origin: Coordinate, destination: Coordinate): Route {
-        val route = kakaoDirectionsClient.searchRoute(origin, destination)
+        val route = kakaoDirectionsClient.searchRoute(origin = origin, destination = destination)
             ?: throw IllegalStateException("경로를 찾을 수 없습니다.")
         check(route.polyline.size >= 2) {
             "유효하지 않은 경로 polyline: ${route.polyline.size}점 (최소 2점 필요)"
@@ -62,50 +74,76 @@ class GasStationRouteRecommender(
         baseRoute: Route,
         fuelType: FuelType
     ): List<Pair<GasStation, Int>> {
-        // 1단계: POLYLINE_MBR — polyline MBR + 동적 buffer(기본 경로의 30%, 최대 10km)
-        val bufferMeters = maxDetourMeters(baseRoute.distanceMeters)
-        val mbrBounds = BoundingBox.aroundPolyline(baseRoute.polyline, bufferMeters)
-        var stations = gasStationRepository.findInBounds(mbrBounds)
-        var stage = CandidateSelectionStage.POLYLINE_MBR
-        logger.info { "[POLYLINE_MBR] MBR buffer=${bufferMeters.toInt()}m, 주유소=${stations.size}건" }
-
-        // 2단계: TIGHT_CORRIDOR — polyline distance ≤ 2km 필터
-        if (stations.size > N_THRESHOLD) {
-            stations = stations.filter {
-                GeoUtils.calculateMinDistanceToPolyline(it.coordinate, baseRoute.polyline) <= TIGHT_CORRIDOR_METERS
-            }
-            stage = CandidateSelectionStage.TIGHT_CORRIDOR
-            logger.info { "[TIGHT_CORRIDOR] corridor=${TIGHT_CORRIDOR_METERS.toInt()}m, 주유소=${stations.size}건" }
+        val collected = collectWithinMbr(baseRoute = baseRoute)
+        val narrowed = collected.filterByTightCorridor(
+            threshold = CandidateCascadePolicy.N_THRESHOLD,
+            polyline = baseRoute.polyline,
+            corridorMeters = CandidateCascadePolicy.TIGHT_CORRIDOR_METERS
+        )
+        if (narrowed.stage != collected.stage) {
+            logger.info { "[TIGHT_CORRIDOR] corridor=${CandidateCascadePolicy.TIGHT_CORRIDOR_METERS.toInt()}m, 주유소=${narrowed.stations.size}건" }
         }
 
-        // 가격 결합 + 가격 없는 주유소 drop
+        val priced = attachPrices(pool = narrowed, fuelType = fuelType)
+        val capped = priced.filterByPriceCap(hardCap = CandidateCascadePolicy.HARD_CAP)
+        if (capped.stage != priced.stage) {
+            logger.info { "[PRICE_CAPPED] 상한=${CandidateCascadePolicy.HARD_CAP}개 적용" }
+        }
+
+        logger.info { "후보 수집 단계=${capped.stage}, 최종 후보=${capped.priced.size}건" }
+        return capped.priced
+    }
+
+    private fun collectWithinMbr(baseRoute: Route): CandidatePool {
+        val bufferMeters = mbrBufferMeters(baseDistanceMeters = baseRoute.distanceMeters)
+        val bounds = BoundingBox.aroundPolyline(polyline = baseRoute.polyline, bufferMeters = bufferMeters)
+        val stations = gasStationRepository.findInBounds(bounds)
+        logger.info { "[POLYLINE_MBR] MBR buffer=${bufferMeters.toInt()}m, 주유소=${stations.size}건" }
+        return CandidatePool(stations = stations, stage = CandidateSelectionStage.POLYLINE_MBR)
+    }
+
+    private fun attachPrices(pool: CandidatePool, fuelType: FuelType): PricedCandidatePool {
         val prices = gasStationPriceRepository
-            .findAllByIdStationIdInAndIdFuelType(stations.map { it.id }, fuelType)
+            .findAllByIdStationIdInAndIdFuelType(stationIds = pool.stations.map { it.id }, fuelType = fuelType)
             .associate { it.id.stationId to it.price }
 
-        val missingIds = stations.map { it.id } - prices.keys
+        val missingIds = pool.stations.map { it.id } - prices.keys
         if (missingIds.isNotEmpty()) logger.warn { "가격 정보 없음 (제외): stationIds=$missingIds, fuelType=$fuelType" }
 
-        var withPrice = stations
+        val priced = pool.stations
             .filter { it.id !in missingIds }
             .map { it to prices.getValue(it.id) }
             .sortedBy { (_, price) -> price }
-
-        // 3단계: PRICE_CAPPED — 가격 오름차순 상위 HARD_CAP개
-        if (withPrice.size > HARD_CAP) {
-            withPrice = withPrice.take(HARD_CAP)
-            stage = CandidateSelectionStage.PRICE_CAPPED
-            logger.info { "[PRICE_CAPPED] 상한=${HARD_CAP}개 적용" }
-        }
-
-        logger.info { "후보 수집 단계=$stage, 최종 후보=${withPrice.size}건" }
-        return withPrice
+        return PricedCandidatePool(priced = priced, stage = pool.stage)
     }
 
-    // score = price × refuelLiters + (detourKm / fuelEfficiency) × price + 시간비
-    // detour ≥ 0 이므로 price × refuelLiters 는 score의 수학적 하한(lower bound)
-    // → 가격 오름차순 탐색 중, top-limit 결과가 확보된 후
-    //   price × refuelLiters > 현재 k번째 최선 score 이면 이후 모든 후보 pruning 가능
+    private data class CandidatePool(
+        val stations: List<GasStation>,
+        val stage: CandidateSelectionStage
+    ) {
+        fun filterByTightCorridor(
+            threshold: Int,
+            polyline: List<Coordinate>,
+            corridorMeters: Double
+        ): CandidatePool {
+            if (stations.size <= threshold) return this
+            val narrowed = stations.filter {
+                GeoUtils.calculateMinDistanceToPolyline(it.coordinate, polyline) <= corridorMeters
+            }
+            return copy(stations = narrowed, stage = CandidateSelectionStage.TIGHT_CORRIDOR)
+        }
+    }
+
+    private data class PricedCandidatePool(
+        val priced: List<Pair<GasStation, Int>>,
+        val stage: CandidateSelectionStage
+    ) {
+        fun filterByPriceCap(hardCap: Int): PricedCandidatePool {
+            if (priced.size <= hardCap) return this
+            return copy(priced = priced.take(hardCap), stage = CandidateSelectionStage.PRICE_CAPPED)
+        }
+    }
+
     private fun rankByPriceLowerBound(
         candidates: List<Pair<GasStation, Int>>,
         baseRoute: Route,
@@ -117,6 +155,7 @@ class GasStationRouteRecommender(
     ): List<ScoredGasStation> {
         val results = mutableListOf<ScoredGasStation>()
         var kthBestScore = Double.MAX_VALUE
+        val detourLimit = maxDetourMeters(baseDistanceMeters = baseRoute.distanceMeters)
 
         for ((index, candidate) in candidates.withIndex()) {
             val (station, price) = candidate
@@ -125,11 +164,16 @@ class GasStationRouteRecommender(
                 break
             }
 
-            val routeViaStation = kakaoDirectionsClient.searchRouteViaWaypoint(origin, destination, station.coordinate)
-                ?: throw IllegalStateException("경유 경로 조회 실패: stationId=${station.id}")
+            val routeViaStation = kakaoDirectionsClient.searchRouteViaWaypoint(
+                origin = origin, destination = destination, waypoint = station.coordinate
+            )
+            if (routeViaStation == null) {
+                logger.warn { "경유 경로 조회 실패, 건너뜀: stationId=${station.id}" }
+                continue
+            }
 
             val actualDetour = (routeViaStation.distanceMeters - baseRoute.distanceMeters).coerceAtLeast(0).toDouble()
-            if (actualDetour > maxDetourMeters(baseRoute.distanceMeters)) {
+            if (actualDetour > detourLimit) {
                 logger.info { "우회 상한 초과 제외: stationId=${station.id}, detour=${actualDetour.toInt()}m" }
                 continue
             }
