@@ -29,8 +29,7 @@ class GasStationRadiusRecommender(
         return stations
             .map {
                 ScoredGasStation(
-                    station = it.station,
-                    price = it.price,
+                    priced = it.priced,
                     detourDistanceMeters = it.distanceMeters,
                     detourSeconds = 0,
                     refuelLiters = refuelLiters,

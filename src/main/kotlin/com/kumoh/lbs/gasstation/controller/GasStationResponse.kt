@@ -18,13 +18,13 @@ data class GasStationResponse(
     val estimatedSavings: Int
 ) {
     companion object {
-        fun fromList(scoredList: List<ScoredGasStation>, maxPriceInCandidates: Int? = null): List<GasStationResponse> {
+        fun fromList(scoredList: List<ScoredGasStation>, savingsBaselinePrice: Int? = null): List<GasStationResponse> {
             if (scoredList.isEmpty()) return emptyList()
-            val maxPrice = maxPriceInCandidates ?: scoredList.maxOf { it.price }
-            return scoredList.map { from(it, maxPrice) }
+            val baseline = savingsBaselinePrice ?: scoredList.maxOf { it.price }
+            return scoredList.map { from(it, baseline) }
         }
 
-        private fun from(scored: ScoredGasStation, maxPriceInCandidates: Int) = GasStationResponse(
+        private fun from(scored: ScoredGasStation, savingsBaselinePrice: Int) = GasStationResponse(
             opinetStationId = scored.station.id,
             name = scored.station.name,
             brand = scored.station.brand,
@@ -37,7 +37,7 @@ data class GasStationResponse(
             isActualDetour = scored.isActualDetour,
             estimatedFuelCost = scored.fuelCost.toInt(),
             estimatedDetourCost = (scored.detourFuelCost + scored.detourTimeCost).toInt(),
-            estimatedSavings = ((maxPriceInCandidates - scored.price) * scored.refuelLiters).toInt()
+            estimatedSavings = ((savingsBaselinePrice - scored.price) * scored.refuelLiters).toInt()
         )
     }
 }

@@ -59,6 +59,6 @@ class GasStationController(
         val destination = Coordinate.fromWgs84(Coordinate.Wgs84(destinationLatitude, destinationLongitude))
 
         val result = routeRecommender.recommend(origin, destination, fuelType, refuelLiters, fuelEfficiency, limit)
-        return GasStationResponse.fromList(result.scored, result.maxPriceInCandidates)
+        return GasStationResponse.fromList(result.scored, result.savingsBaselinePrice)
     }
 }

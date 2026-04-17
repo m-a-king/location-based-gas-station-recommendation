@@ -1,14 +1,16 @@
 package com.kumoh.lbs.gasstation.domain
 
 class ScoredGasStation(
-    val station: GasStation,
-    val price: Int,
+    val priced: PricedGasStation,
     val detourDistanceMeters: Double,
     val detourSeconds: Int,
     val refuelLiters: Double,
     val fuelEfficiency: Double,
     val isActualDetour: Boolean = false
 ) {
+    val station: GasStation get() = priced.station
+    val price: Int get() = priced.price
+
     val detourKm: Double
         get() = detourDistanceMeters / METERS_PER_KM
 
