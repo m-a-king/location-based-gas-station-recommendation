@@ -4,6 +4,7 @@ plugins {
     id("org.springframework.boot") version "4.0.3"
     id("io.spring.dependency-management") version "1.1.7"
     kotlin("plugin.jpa") version "2.3.0"
+    jacoco
 }
 
 group = "com.kumoh"
@@ -62,6 +63,34 @@ allOpen {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+jacoco {
+    toolVersion = "0.8.13"
+}
+
+tasks.test {
+    finalizedBy(tasks.jacocoTestReport)
+}
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+    reports {
+        html.required.set(true)
+        csv.required.set(true)
+        xml.required.set(false)
+    }
+    classDirectories.setFrom(
+        files(classDirectories.files.map {
+            fileTree(it) {
+                exclude(
+                    "**/LocationBasedServiceApplication*",
+                    "**/*Properties*",
+                    "**/infra/*Config*"
+                )
+            }
+        })
+    )
 }
 
 tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
