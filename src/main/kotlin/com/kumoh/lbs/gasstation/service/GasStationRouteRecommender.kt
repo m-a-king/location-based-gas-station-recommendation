@@ -14,8 +14,11 @@ import com.kumoh.lbs.gasstation.repository.GasStationRepository
 import com.kumoh.lbs.geo.BoundingBox
 import com.kumoh.lbs.geo.Coordinate
 import com.kumoh.lbs.geo.GeoUtils
+import com.kumoh.lbs.infra.RouteRecommenderProperties
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.Executor
 
 private val logger = KotlinLogging.logger {}
 
@@ -23,7 +26,9 @@ private val logger = KotlinLogging.logger {}
 class GasStationRouteRecommender(
     private val kakaoDirectionsClient: KakaoDirectionsClient,
     private val gasStationRepository: GasStationRepository,
-    private val gasStationPriceRepository: GasStationPriceRepository
+    private val gasStationPriceRepository: GasStationPriceRepository,
+    private val routeExecutor: Executor,
+    private val properties: RouteRecommenderProperties
 ) {
 
     companion object {
@@ -146,6 +151,15 @@ class GasStationRouteRecommender(
         }
     }
 
+    /**
+     * 파동(wave) 기반 병렬 dispatch로 Kakao 경유 경로를 조회한다.
+     *
+     * - 첫 파동 = limit: kthBestScore가 초기화되기 전에는 pruning이 수학적으로 불가능하므로,
+     *   어차피 호출해야 할 최소 분량을 병렬로 돌린다. (낭비 호출 0)
+     * - 이후 파동 = properties.waveSize: 파동 경계에서 price lower bound 검사.
+     *   낭비 호출 상한은 pruning이 파동 한가운데 트리거되는 경우의 (waveSize − 1)건.
+     * - 후보는 가격 오름차순 정렬이라 파동의 첫 항목(i)의 lower bound만 확인하면 충분.
+     */
     private fun rankByPriceLowerBound(
         candidates: List<PricedGasStation>,
         baseRoute: Route,
@@ -159,42 +173,72 @@ class GasStationRouteRecommender(
         var kthBestScore = Double.MAX_VALUE
         val detourLimit = maxDetourMeters(baseDistanceMeters = baseRoute.distanceMeters)
 
-        for ((index, candidate) in candidates.withIndex()) {
-            if (candidate.price * refuelLiters > kthBestScore) {
-                logger.info { "price lower bound 초과로 탐색 종료: ${candidates.size - index}건 pruning" }
+        var cursor = 0
+        var nextWaveSize = limit.coerceAtLeast(1)
+        var totalCalled = 0
+
+        while (cursor < candidates.size) {
+            if (candidates[cursor].price * refuelLiters > kthBestScore) {
+                logger.info { "price lower bound 초과로 탐색 종료: ${candidates.size - cursor}건 pruning" }
                 break
             }
 
-            val routeViaStation = kakaoDirectionsClient.searchRouteViaWaypoint(
-                origin = origin, destination = destination, waypoint = candidate.station.coordinate
-            )
-            if (routeViaStation == null) {
-                logger.warn { "경유 경로 조회 실패, 건너뜀: stationId=${candidate.station.id}" }
-                continue
+            val end = minOf(cursor + nextWaveSize, candidates.size)
+            val wave = candidates.subList(cursor, end)
+            val routed = dispatchWaveInParallel(wave = wave, origin = origin, destination = destination)
+            totalCalled += wave.size
+
+            for ((candidate, routeViaStation) in routed) {
+                if (routeViaStation == null) {
+                    logger.warn { "경유 경로 조회 실패, 건너뜀: stationId=${candidate.station.id}" }
+                    continue
+                }
+                val actualDetour = (routeViaStation.distanceMeters - baseRoute.distanceMeters).coerceAtLeast(0).toDouble()
+                if (actualDetour > detourLimit) {
+                    logger.info { "우회 상한 초과 제외: stationId=${candidate.station.id}, detour=${actualDetour.toInt()}m" }
+                    continue
+                }
+                val actualDetourSeconds = (routeViaStation.durationSeconds - baseRoute.durationSeconds).coerceAtLeast(0)
+                results += ScoredGasStation(
+                    priced = candidate,
+                    detourDistanceMeters = actualDetour,
+                    detourSeconds = actualDetourSeconds,
+                    refuelLiters = refuelLiters,
+                    fuelEfficiency = fuelEfficiency,
+                    isActualDetour = true
+                )
+                if (results.size >= limit) {
+                    kthBestScore = results.sortedBy { it.score }[limit - 1].score
+                }
             }
 
-            val actualDetour = (routeViaStation.distanceMeters - baseRoute.distanceMeters).coerceAtLeast(0).toDouble()
-            if (actualDetour > detourLimit) {
-                logger.info { "우회 상한 초과 제외: stationId=${candidate.station.id}, detour=${actualDetour.toInt()}m" }
-                continue
-            }
-            val actualDetourSeconds = (routeViaStation.durationSeconds - baseRoute.durationSeconds).coerceAtLeast(0)
-            val scored = ScoredGasStation(
-                priced = candidate,
-                detourDistanceMeters = actualDetour,
-                detourSeconds = actualDetourSeconds,
-                refuelLiters = refuelLiters,
-                fuelEfficiency = fuelEfficiency,
-                isActualDetour = true
-            )
-
-            results.add(scored)
-            if (results.size >= limit) {
-                kthBestScore = results.sortedBy { it.score }[limit - 1].score
-            }
+            cursor = end
+            nextWaveSize = properties.waveSize
         }
 
-        logger.info { "Kakao API 호출: ${results.size}회" }
+        logger.info { "Kakao 병렬 호출 완료: 호출=${totalCalled}건, 유효 결과=${results.size}건" }
         return results.sortedBy { it.score }.take(limit)
+    }
+
+    private fun dispatchWaveInParallel(
+        wave: List<PricedGasStation>,
+        origin: Coordinate,
+        destination: Coordinate
+    ): List<Pair<PricedGasStation, Route?>> {
+        if (wave.size == 1) {
+            val only = wave[0]
+            val route = kakaoDirectionsClient.searchRouteViaWaypoint(
+                origin = origin, destination = destination, waypoint = only.station.coordinate
+            )
+            return listOf(only to route)
+        }
+        val futures = wave.map { candidate ->
+            CompletableFuture.supplyAsync({
+                kakaoDirectionsClient.searchRouteViaWaypoint(
+                    origin = origin, destination = destination, waypoint = candidate.station.coordinate
+                )
+            }, routeExecutor)
+        }
+        return wave.zip(futures) { candidate, future -> candidate to future.join() }
     }
 }

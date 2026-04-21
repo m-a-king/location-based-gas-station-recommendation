@@ -10,6 +10,9 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter
 import org.springframework.web.client.RestClient
 import java.time.Duration
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 
 @Configuration
 class RestClientConfig {
@@ -48,5 +51,13 @@ class RestClientConfig {
     private fun createRequestFactory() = SimpleClientHttpRequestFactory().apply {
         setConnectTimeout(CONNECT_TIMEOUT)
         setReadTimeout(READ_TIMEOUT)
+    }
+
+    @Bean(destroyMethod = "shutdown")
+    fun routeExecutor(properties: RouteRecommenderProperties): ExecutorService {
+        val counter = AtomicInteger()
+        return Executors.newFixedThreadPool(properties.maxParallelism) { runnable ->
+            Thread(runnable, "route-kakao-${counter.incrementAndGet()}").apply { isDaemon = true }
+        }
     }
 }
