@@ -12,8 +12,10 @@ import com.kumoh.lbs.gasstation.repository.GasStationRepository
 import com.kumoh.lbs.geo.Coordinate
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.collections.shouldNotContain
+import io.kotest.matchers.comparables.shouldBeLessThan
 import io.kotest.matchers.doubles.shouldBeExactly
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldStartWith
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -30,7 +32,11 @@ import org.springframework.context.annotation.Import
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import java.time.LocalDate
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.abs
+import kotlin.system.measureTimeMillis
 
 /**
  * 경로 기반 추천 통합 테스트. DB는 Testcontainers, Kakao Directions만 MockitoBean.
@@ -54,10 +60,12 @@ class GasStationRouteRecommenderTest(
     private val baseRoute = Route(polyline = polyline, distanceMeters = 11132)
     private val origin = wgs84(37.0, 127.0)
     private val destination = wgs84(37.1, 127.0)
+    private val nullSequenceCounter = AtomicInteger()
 
     @BeforeEach
     fun setUp() {
         whenever(kakaoDirectionsClient.searchRoute(any(), any())).thenReturn(baseRoute)
+        nullSequenceCounter.set(0)
     }
 
     @AfterEach
@@ -153,6 +161,92 @@ class GasStationRouteRecommenderTest(
         recommender.recommend(origin, destination, FuelType.GASOLINE, 40.0, 10.0, limit = 3)
 
         verify(kakaoDirectionsClient, times(30)).searchRouteViaWaypoint(any(), any(), any())
+    }
+
+    @Test
+    fun `파동 내 Kakao 호출은 routeExecutor의 별도 스레드에서 병렬로 실행된다`() {
+        // limit = 3이므로 첫 파동 = 3건 병렬 dispatch.
+        saveStations("A" to (37.05 to 127.005), "B" to (37.05 to 127.005), "C" to (37.05 to 127.005))
+        savePrices("A" to 1500, "B" to 1500, "C" to 1500)  // 동가 → pruning 불가, 3건 전부 호출
+
+        val observedThreads = ConcurrentHashMap.newKeySet<String>()
+        whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), any())).thenAnswer {
+            observedThreads += Thread.currentThread().name
+            Thread.sleep(150)  // 순차면 총 450ms, 병렬이면 ~150ms
+            Route(polyline = polyline, distanceMeters = baseRoute.distanceMeters + 100)
+        }
+
+        val elapsed = measureTimeMillis {
+            recommender.recommend(origin, destination, FuelType.GASOLINE, 40.0, 10.0, limit = 3)
+        }
+
+        // 호출은 routeExecutor 스레드에서 발생. 이름 prefix가 "route-kakao-"임을 검증.
+        observedThreads.size shouldBe 3
+        observedThreads.forEach { it shouldStartWith "route-kakao-" }
+        // 병렬성 증거: 3× Thread.sleep(150)가 순차면 ≥ 450ms. 병렬이면 250ms 내에 충분.
+        elapsed shouldBeLessThan 400L
+    }
+
+    @Test
+    fun `파동 내 응답 순서가 뒤섞여도 결과는 점수 오름차순으로 정렬된다`() {
+        // A: 느린 응답 / B: 빠른 응답. B가 먼저 완료되어도 A가 더 저가라 1등이어야 함.
+        saveStations("A" to (37.05 to 127.005), "B" to (37.05 to 127.005))
+        savePrices("A" to 1400, "B" to 1500)
+
+        whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), any())).thenAnswer { invocation ->
+            val waypoint = invocation.arguments[2] as Coordinate
+            val isA = abs(waypoint.wgs84.latitude - 37.05) < 0.001
+            if (isA) Thread.sleep(200)  // A만 일부러 느리게
+            Route(polyline = polyline, distanceMeters = baseRoute.distanceMeters + 50)
+        }
+
+        val result = recommender.recommend(origin, destination, FuelType.GASOLINE, 40.0, 10.0, limit = 2)
+
+        result.scored shouldHaveSize 2
+        // 가격 1400인 A가 score 기준 1등
+        result.scored[0].station.id shouldBe "A"
+        result.scored[1].station.id shouldBe "B"
+    }
+
+    @Test
+    fun `파동 내 일부 호출이 null을 반환해도 나머지는 정상 채점된다`() {
+        saveStations("A" to (37.05 to 127.005), "B" to (37.05 to 127.005), "C" to (37.05 to 127.005))
+        savePrices("A" to 1500, "B" to 1500, "C" to 1500)
+
+        // B만 실패(null), A·C는 정상.
+        whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), any())).thenAnswer { invocation ->
+            val waypoint = invocation.arguments[2] as Coordinate
+            // 동일 좌표라 구분 불가 — 대신 호출 순서로 2번째만 실패 처리
+            val ordinal = nullSequenceCounter.incrementAndGet()
+            if (ordinal == 2) null
+            else Route(polyline = polyline, distanceMeters = baseRoute.distanceMeters + 100)
+        }
+
+        val result = recommender.recommend(origin, destination, FuelType.GASOLINE, 40.0, 10.0, limit = 3)
+
+        result.scored shouldHaveSize 2
+        verify(kakaoDirectionsClient, times(3)).searchRouteViaWaypoint(any(), any(), any())
+    }
+
+    @Test
+    fun `파동 경계에서 price lower bound pruning이 작동해 다음 파동은 dispatch되지 않는다`() {
+        // 후보 4건: A 1000 / B 1000 / C 2000 / D 2000. limit = 2.
+        // 첫 파동 = 2: [A(1000), B(1000)] 호출 → 점수 ≈ 40000. kthBestScore = 40000.
+        // 두 번째 파동 경계: candidates[2] = C(2000). 2000 × 40 = 80000 > 40000 → pruning break.
+        // 결과: Kakao 호출은 정확히 2회.
+        saveStations(
+            "A" to (37.05 to 127.005),
+            "B" to (37.05 to 127.005),
+            "C" to (37.05 to 127.005),
+            "D" to (37.05 to 127.005)
+        )
+        savePrices("A" to 1000, "B" to 1000, "C" to 2000, "D" to 2000)
+        whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), any()))
+            .thenReturn(Route(polyline = polyline, distanceMeters = baseRoute.distanceMeters))
+
+        recommender.recommend(origin, destination, FuelType.GASOLINE, 40.0, 10.0, limit = 2)
+
+        verify(kakaoDirectionsClient, times(2)).searchRouteViaWaypoint(any(), any(), any())
     }
 
     @Test
