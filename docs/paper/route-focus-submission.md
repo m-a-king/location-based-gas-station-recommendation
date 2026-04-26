@@ -19,7 +19,7 @@ In this paper we propose a 2-hop re-query scheme for route-based gas station rec
 
 ## Key words
 
-gas station recommendation, 2-hop routing, minimum bounding rectangle, detour cost minimization, location-based service
+gas station recommendation, cost-aware detour, 2-hop re-query, minimum bounding rectangle, location-based service
 
 ## Ⅰ. 서 론
 
