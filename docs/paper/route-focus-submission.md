@@ -38,7 +38,7 @@ gas station recommendation, 2-hop routing, minimum bounding rectangle, detour co
 표 1. 서비스 기능 비교
 Table 1. Service Comparison
 
-| 기능 / 서비스 | Proceed System | 오일나우 | 오피넷 |
+| 기능 / 서비스 | 제안 시스템 | 오일나우 | 오피넷 |
 |---|---|---|---|
 | 지도 연동 | O | O | O |
 | 주유소 추천 | O | △ | O |
