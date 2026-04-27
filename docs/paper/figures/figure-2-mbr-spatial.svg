@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" font-family="'Noto Sans KR', 'Malgun Gothic', sans-serif">
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#E5E7EB" stroke-width="0.5"/>
+    </pattern>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#16A34A"/>
+    </marker>
+  </defs>
+
+  <rect width="800" height="500" fill="#FAFBFC"/>
+  <rect width="800" height="500" fill="url(#grid)"/>
+
+  <!-- MBR + buffer -->
+  <rect x="50" y="70" width="700" height="380" fill="none" stroke="#64748B" stroke-width="1.5" stroke-dasharray="8,5"/>
+  <text x="60" y="62" fill="#475569" font-size="13" font-weight="500">폴리라인 MBR + buffer</text>
+
+  <!-- 폴리라인 경로 (S 좌상 → D 우하) -->
+  <path d="M 90 130 C 280 250, 540 280, 720 410" fill="none" stroke="#2563EB" stroke-width="3.5"/>
+
+  <!-- S (출발, 좌상) -->
+  <circle cx="90" cy="130" r="9" fill="#2563EB"/>
+  <text x="100" y="125" fill="#1E293B" font-size="14" font-weight="600">출발 (S)</text>
+
+  <!-- D (도착, 우하) -->
+  <polygon points="720,401 734,420 706,420" fill="#2563EB"/>
+  <text x="635" y="425" fill="#1E293B" font-size="14" font-weight="600">도착 (D)</text>
+
+  <!-- P1: 경로상 후보 -->
+  <circle cx="342" cy="243" r="8" fill="#DC2626"/>
+  <text x="320" y="230" fill="#DC2626" font-size="14" font-weight="700">P1</text>
+  <text x="298" y="215" fill="#64748B" font-size="11">경로상</text>
+
+  <!-- P2: 우회 후보 (우상단 멀리) -->
+  <circle cx="590" cy="110" r="10" fill="#16A34A"/>
+  <text x="605" y="115" fill="#16A34A" font-size="14" font-weight="700">P2</text>
+
+  <!-- P2: 직선 거리 (점선, 길게) -->
+  <line x1="590" y1="110" x2="604" y2="342" stroke="#94A3B8" stroke-width="1.5" stroke-dasharray="5,4"/>
+  <text x="610" y="225" fill="#64748B" font-size="12" font-style="italic">직선 3 km</text>
+
+  <!-- P2: 경유 시 추가 이동 거리 (짧은 곡선 화살표) -->
+  <path d="M 590 110 Q 625 135, 615 175" fill="none" stroke="#16A34A" stroke-width="2.5" marker-end="url(#arrowhead)"/>
+  <text x="630" y="155" fill="#16A34A" font-size="12" font-weight="600">경로 길이 +500 m</text>
+
+  <!-- P3: MBR 밖 (좌측) -->
+  <circle cx="35" cy="300" r="8" fill="#94A3B8"/>
+  <text x="18" y="320" fill="#64748B" font-size="13">P3</text>
+  <text x="10" y="335" fill="#94A3B8" font-size="11">MBR 밖, 배제</text>
+
+  <!-- 범례 박스 (좌하단) -->
+  <rect x="60" y="455" width="380" height="38" fill="white" stroke="#E5E7EB" stroke-width="1" rx="4"/>
+  <text x="75" y="478" fill="#1E293B" font-size="12" font-weight="600">핵심: 직선 거리(점선) ≠ 우회 거리(경유 시 추가 이동)</text>
+</svg>
