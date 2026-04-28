@@ -10,8 +10,13 @@ enum class CandidateSelectionStage {
     /** polyline MBR + 동적 buffer 내 전체 주유소 수집 */
     POLYLINE_MBR,
 
-    /** polyline 직선 거리 ≤ 2km 필터로 dead-zone 후보 제거 */
-    TIGHT_CORRIDOR,
+    /**
+     * 경로상 후보(폴리라인까지 직선 ≤ ON_ROUTE_RADIUS_METERS)의 최저가를
+     * 기준으로 가격 ≤ p_route 후보만 보존.
+     * 식 (2) 하한에 의해 가격이 더 비싼 후보는 1위가 될 수 없으므로
+     * 외부 호출 전에 정확히 배제 가능.
+     */
+    ROUTE_PRICE_CEILING,
 
     /** 가격 오름차순 상위 30개 하드캡 — Kakao 호출 수 절대 상한 보장 */
     PRICE_CAPPED

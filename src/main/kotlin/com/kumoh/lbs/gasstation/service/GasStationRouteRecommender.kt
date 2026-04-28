@@ -81,18 +81,18 @@ class GasStationRouteRecommender(
         fuelType: FuelType
     ): List<PricedGasStation> {
         val collected = collectWithinMbr(baseRoute = baseRoute)
-        val narrowed = collected.filterByTightCorridor(
+        val priced = attachPrices(pool = collected, fuelType = fuelType)
+        val ceilinged = priced.filterByRoutePriceCeiling(
             threshold = CandidateCascadePolicy.N_THRESHOLD,
             polyline = baseRoute.polyline,
-            corridorMeters = CandidateCascadePolicy.TIGHT_CORRIDOR_METERS
+            onRouteRadiusMeters = CandidateCascadePolicy.ON_ROUTE_RADIUS_METERS
         )
-        if (narrowed.stage != collected.stage) {
-            logger.info { "[TIGHT_CORRIDOR] corridor=${CandidateCascadePolicy.TIGHT_CORRIDOR_METERS.toInt()}m, 주유소=${narrowed.stations.size}건" }
+        if (ceilinged.stage != priced.stage) {
+            logger.info { "[ROUTE_PRICE_CEILING] 경로상(직선 ≤ ${CandidateCascadePolicy.ON_ROUTE_RADIUS_METERS.toInt()}m) 최저가 기준 cap, 주유소=${ceilinged.priced.size}건" }
         }
 
-        val priced = attachPrices(pool = narrowed, fuelType = fuelType)
-        val capped = priced.filterByPriceCap(hardCap = CandidateCascadePolicy.HARD_CAP)
-        if (capped.stage != priced.stage) {
+        val capped = ceilinged.filterByPriceCap(hardCap = CandidateCascadePolicy.HARD_CAP)
+        if (capped.stage != ceilinged.stage) {
             logger.info { "[PRICE_CAPPED] 상한=${CandidateCascadePolicy.HARD_CAP}개 적용" }
         }
 
@@ -127,24 +127,34 @@ class GasStationRouteRecommender(
     private data class CandidatePool(
         val stations: List<GasStation>,
         val stage: CandidateSelectionStage
-    ) {
-        fun filterByTightCorridor(
-            threshold: Int,
-            polyline: List<Coordinate>,
-            corridorMeters: Double
-        ): CandidatePool {
-            if (stations.size <= threshold) return this
-            val narrowed = stations.filter {
-                GeoUtils.calculateMinDistanceToPolyline(it.coordinate, polyline) <= corridorMeters
-            }
-            return copy(stations = narrowed, stage = CandidateSelectionStage.TIGHT_CORRIDOR)
-        }
-    }
+    )
 
     private data class PricedCandidatePool(
         val priced: List<PricedGasStation>,
         val stage: CandidateSelectionStage
     ) {
+        /**
+         * 경로상 후보(폴리라인까지 직선 ≤ onRouteRadiusMeters) 중 최저가 p_route를 구하고
+         * 가격 ≤ p_route 후보만 보존한다. N ≤ threshold 또는 경로상 후보가 없으면 무변경.
+         *
+         * 식 (2) 하한 score_i ≥ p_i × ℓ에서, p_i > p_route인 후보는
+         * 우회 비용이 0이라도 경로상 최저가 후보를 이길 수 없으므로 외부 호출 전에 배제 가능.
+         */
+        fun filterByRoutePriceCeiling(
+            threshold: Int,
+            polyline: List<Coordinate>,
+            onRouteRadiusMeters: Double
+        ): PricedCandidatePool {
+            if (priced.size <= threshold) return this
+            val onRoute = priced.filter {
+                GeoUtils.calculateMinDistanceToPolyline(it.station.coordinate, polyline) <= onRouteRadiusMeters
+            }
+            if (onRoute.isEmpty()) return this
+            val routeMinPrice = onRoute.minOf { it.price }
+            val filtered = priced.filter { it.price <= routeMinPrice }
+            return copy(priced = filtered, stage = CandidateSelectionStage.ROUTE_PRICE_CEILING)
+        }
+
         fun filterByPriceCap(hardCap: Int): PricedCandidatePool {
             if (priced.size <= hardCap) return this
             return copy(priced = priced.take(hardCap), stage = CandidateSelectionStage.PRICE_CAPPED)
@@ -189,10 +199,9 @@ class GasStationRouteRecommender(
             totalCalled += wave.size
 
             for ((candidate, routeViaStation) in routed) {
-                if (routeViaStation == null) {
-                    logger.warn { "경유 경로 조회 실패, 건너뜀: stationId=${candidate.station.id}" }
-                    continue
-                }
+                // null 인 경우 KakaoDirectionsClient가 이미 원인(429/403/4xx/5xx/NETWORK)을 구체적으로 로그.
+                // 여기서는 집계(실패 수)만 [WAVE] 완료 로그에 반영한다.
+                if (routeViaStation == null) continue
                 val actualDetour = (routeViaStation.distanceMeters - baseRoute.distanceMeters).coerceAtLeast(0).toDouble()
                 if (actualDetour > detourLimit) {
                     logger.info { "우회 상한 초과 제외: stationId=${candidate.station.id}, detour=${actualDetour.toInt()}m" }
@@ -225,20 +234,29 @@ class GasStationRouteRecommender(
         origin: Coordinate,
         destination: Coordinate
     ): List<Pair<PricedGasStation, Route?>> {
-        if (wave.size == 1) {
+        val waveStart = System.nanoTime()
+        val paired: List<Pair<PricedGasStation, Route?>> = if (wave.size == 1) {
             val only = wave[0]
             val route = kakaoDirectionsClient.searchRouteViaWaypoint(
                 origin = origin, destination = destination, waypoint = only.station.coordinate
             )
-            return listOf(only to route)
+            listOf(only to route)
+        } else {
+            val futures = wave.map { candidate ->
+                CompletableFuture.supplyAsync({
+                    kakaoDirectionsClient.searchRouteViaWaypoint(
+                        origin = origin, destination = destination, waypoint = candidate.station.coordinate
+                    )
+                }, routeExecutor)
+            }
+            wave.zip(futures) { candidate, future -> candidate to future.join() }
         }
-        val futures = wave.map { candidate ->
-            CompletableFuture.supplyAsync({
-                kakaoDirectionsClient.searchRouteViaWaypoint(
-                    origin = origin, destination = destination, waypoint = candidate.station.coordinate
-                )
-            }, routeExecutor)
+        val waveMs = (System.nanoTime() - waveStart) / 1_000_000
+        val nullCount = paired.count { it.second == null }
+        logger.info {
+            "[WAVE] size=${wave.size}, 실패=${nullCount}, wall=${waveMs}ms, " +
+                "stationIds=${wave.map { it.station.id }}"
         }
-        return wave.zip(futures) { candidate, future -> candidate to future.join() }
+        return paired
     }
 }
