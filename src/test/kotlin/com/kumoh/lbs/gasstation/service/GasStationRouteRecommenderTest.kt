@@ -101,7 +101,9 @@ class GasStationRouteRecommenderTest(
 
     @Test
     fun `가격이 비슷해 pruning이 안 되면 모든 후보에 Kakao API를 호출한다`() {
-        saveStations("A" to (37.05 to 127.005), "B" to (37.05 to 127.005))
+        // 두 후보를 ON_ROUTE_RADIUS(500m) 밖에 두어 ROUTE_PRICE_CEILING fallback 경로로 진입.
+        // 단계 3 pruning 검증 자체는 cap과 무관하므로 시나리오 본래 의도는 보존.
+        saveStations("A" to (37.05 to 127.04), "B" to (37.05 to 127.04))
         savePrices("A" to 1500, "B" to 1501)
         whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), any()))
             .thenReturn(Route(polyline = polyline, distanceMeters = baseRoute.distanceMeters + 1000))
@@ -125,16 +127,17 @@ class GasStationRouteRecommenderTest(
     }
 
     @Test
-    fun `ROUTE_PRICE_CEILING은 경로상 최저가보다 비싼 후보를 외부 호출 없이 배제한다`() {
-        // 31건(N>30 트리거). ON_*: 경로상(≈450m) 30건 1500원. OUT_HIGH: 경로상 외(≈3.6km) 1건 1600원.
+    fun `ROUTE_PRICE_CEILING은 후보 수와 무관하게 경로상 최저가보다 비싼 후보를 외부 호출 없이 배제한다`() {
+        // 작은 N(=4): ON_*: 경로상(≈450m) 3건 1500원. OUT_HIGH: 경로상 외(≈3.6km) 1건 1600원.
         // p_route = 1500. 가격 > 1500인 OUT_HIGH는 식 (2) 하한에 의해 1위가 될 수 없으므로 cap에서 정확히 배제.
+        // 후보 수 임계값(N>30 트리거)을 제거했으므로 작은 N에서도 cap이 발동해야 한다.
         saveStations(
-            *((0 until 30).map { "ON_$it" to (37.05 to 127.005) } + ("OUT_HIGH" to (37.05 to 127.04)))
-                .toTypedArray()
+            "ON_0" to (37.05 to 127.005),
+            "ON_1" to (37.05 to 127.005),
+            "ON_2" to (37.05 to 127.005),
+            "OUT_HIGH" to (37.05 to 127.04)
         )
-        savePrices(
-            *((0 until 30).map { "ON_$it" to 1500 } + ("OUT_HIGH" to 1600)).toTypedArray()
-        )
+        savePrices("ON_0" to 1500, "ON_1" to 1500, "ON_2" to 1500, "OUT_HIGH" to 1600)
         whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), any()))
             .thenReturn(Route(polyline = polyline, distanceMeters = baseRoute.distanceMeters + 100))
 
@@ -148,7 +151,7 @@ class GasStationRouteRecommenderTest(
     }
 
     @Test
-    fun `N이 30 초과여도 경로상 후보가 0개면 ROUTE_PRICE_CEILING은 fallback하고 PRICE_CAPPED만 적용된다`() {
+    fun `경로상 후보가 0개면 ROUTE_PRICE_CEILING은 fallback하고 후보가 그대로 단계 3에 진입한다`() {
         // 31건 모두 경로상 외(≈3.6km, ON_ROUTE_RADIUS 500m 초과). 경로상 후보 0개 → cap 미적용 fallback.
         // 동가 1500으로 pruning 무력화하여 PRICE_CAPPED HARD_CAP 30이 그대로 호출 30회를 만듦.
         saveStations(*(0 until 31).map { "OUT_$it" to (37.05 to 127.04) }.toTypedArray())
@@ -163,15 +166,15 @@ class GasStationRouteRecommenderTest(
 
     @Test
     fun `cap 통과 후보가 limit보다 적으면 그 수만큼만 반환된다`() {
-        // 31건(N>30 트리거). ON_LOW: 경로상 1400원(p_route). HIGH_*: 경로상 30건 1500~1529원(p_route 초과).
+        // ON_LOW: 경로상 1400원(p_route). HIGH_*: 경로상 5건 1500~1504원(p_route 초과).
         // p_route = 1400. 가격 ≤ 1400은 ON_LOW 하나뿐 → 단계 3 호출도 1회, 결과도 1개.
         saveStations(
             *(listOf("ON_LOW" to (37.05 to 127.005)) +
-                (0 until 30).map { "HIGH_$it" to (37.05 to 127.005) }).toTypedArray()
+                (0 until 5).map { "HIGH_$it" to (37.05 to 127.005) }).toTypedArray()
         )
         savePrices(
             *(listOf("ON_LOW" to 1400) +
-                (0 until 30).map { "HIGH_$it" to (1500 + it) }).toTypedArray()
+                (0 until 5).map { "HIGH_$it" to (1500 + it) }).toTypedArray()
         )
         whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), any()))
             .thenReturn(Route(polyline = polyline, distanceMeters = baseRoute.distanceMeters + 100))
@@ -225,7 +228,8 @@ class GasStationRouteRecommenderTest(
     @Test
     fun `파동 내 응답 순서가 뒤섞여도 결과는 점수 오름차순으로 정렬된다`() {
         // A: 느린 응답 / B: 빠른 응답. B가 먼저 완료되어도 A가 더 저가라 1등이어야 함.
-        saveStations("A" to (37.05 to 127.005), "B" to (37.05 to 127.005))
+        // 두 후보 모두 경로상 외 좌표로 두어 ROUTE_PRICE_CEILING fallback. 파동 정렬 검증 본래 의도 보존.
+        saveStations("A" to (37.05 to 127.04), "B" to (37.05 to 127.04))
         savePrices("A" to 1400, "B" to 1500)
 
         whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), any())).thenAnswer { invocation ->

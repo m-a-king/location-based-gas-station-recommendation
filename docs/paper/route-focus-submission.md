@@ -92,8 +92,8 @@ Table 2. Candidate selection cascade
 | 단계 | 조건 | 동작 |
 |---|---|---|
 | POLYLINE_MBR | (항상 시작) | 폴리라인 MBR + 동적 buffer(우회 상한 × 2) 내 주유소 수집 |
-| ROUTE_PRICE_CEILING | $N > 30$ | 경로상 후보(폴리라인까지 직선 ≤ 500 m) 최저가 $p_{route}$를 cap으로 가격 $\leq p_{route}$ 후보만 보존 (경로상 후보 0개 시 fallback) |
-| PRICE_CAPPED | 잔여 $N > 30$ | 가격 오름차순 상위 30개만 유지 |
+| ROUTE_PRICE_CEILING | (항상 시도) | 경로상 후보(폴리라인까지 직선 ≤ 500 m) 최저가 $p_{route}$를 cap으로 가격 $\leq p_{route}$ 후보만 보존 (경로상 후보 0개 시 fallback) |
+| PRICE_CAPPED | 잔여 후보 > 30 | 가격 오름차순 상위 30개만 유지 |
 
 1단계 POLYLINE_MBR이 공간을 관대하게 열고, 2단계 ROUTE_PRICE_CEILING은 경로상 후보의 최저가 $p_{route}$를 cap으로 두어 가격 $\leq p_{route}$ 후보만 보존한다. 식 (2) 하한 $\text{score}_i \geq p_i \ell$에 의해 $p_i > p_{route}$인 후보는 우회 비용이 0이라도 경로상 최저가 후보를 이길 수 없으므로 외부 호출 전에 정확히 배제 가능하다. 경로상 후보가 0개인 시나리오에서는 cap 미적용으로 fallback한다. 3단계 PRICE_CAPPED는 잔여 후보를 가격 상위 30개로 강제 상한하여 단계 3 호출 수를 보장한다. 이 cascade는 식 (2)의 수학적 하한과 deviation tolerance[4] 개념을 결합하여 호출 예산을 관리한다.
 

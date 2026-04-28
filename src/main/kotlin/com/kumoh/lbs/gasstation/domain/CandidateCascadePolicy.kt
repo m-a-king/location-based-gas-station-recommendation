@@ -8,12 +8,6 @@ package com.kumoh.lbs.gasstation.domain
 object CandidateCascadePolicy {
 
     /**
-     * POLYLINE_MBR 단계 후보 수가 이 값을 초과하면 ROUTE_PRICE_CEILING 단계로 좁힌다.
-     * cascade 진입 트리거.
-     */
-    const val N_THRESHOLD = 30
-
-    /**
      * PRICE_CAPPED 단계에서 남길 최대 후보 수.
      * Kakao 경유 경로 호출 수의 절대 상한(pruning이 이보다 더 줄일 수 있음).
      */

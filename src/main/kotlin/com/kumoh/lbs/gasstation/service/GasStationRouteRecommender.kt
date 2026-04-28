@@ -83,7 +83,6 @@ class GasStationRouteRecommender(
         val collected = collectWithinMbr(baseRoute = baseRoute)
         val priced = attachPrices(pool = collected, fuelType = fuelType)
         val ceilinged = priced.filterByRoutePriceCeiling(
-            threshold = CandidateCascadePolicy.N_THRESHOLD,
             polyline = baseRoute.polyline,
             onRouteRadiusMeters = CandidateCascadePolicy.ON_ROUTE_RADIUS_METERS
         )
@@ -135,23 +134,23 @@ class GasStationRouteRecommender(
     ) {
         /**
          * 경로상 후보(폴리라인까지 직선 ≤ onRouteRadiusMeters) 중 최저가 p_route를 구하고
-         * 가격 ≤ p_route 후보만 보존한다. N ≤ threshold 또는 경로상 후보가 없으면 무변경.
+         * 가격 ≤ p_route 후보만 보존한다. 경로상 후보가 없으면 무변경(fallback).
          *
          * 식 (2) 하한 score_i ≥ p_i × ℓ에서, p_i > p_route인 후보는
          * 우회 비용이 0이라도 경로상 최저가 후보를 이길 수 없으므로 외부 호출 전에 배제 가능.
+         * 후보 수 N에 무관하게 항상 적용된다(정보 손실 없이 호출 절약).
          */
         fun filterByRoutePriceCeiling(
-            threshold: Int,
             polyline: List<Coordinate>,
             onRouteRadiusMeters: Double
         ): PricedCandidatePool {
-            if (priced.size <= threshold) return this
             val onRoute = priced.filter {
                 GeoUtils.calculateMinDistanceToPolyline(it.station.coordinate, polyline) <= onRouteRadiusMeters
             }
             if (onRoute.isEmpty()) return this
             val routeMinPrice = onRoute.minOf { it.price }
             val filtered = priced.filter { it.price <= routeMinPrice }
+            if (filtered.size == priced.size) return this
             return copy(priced = filtered, stage = CandidateSelectionStage.ROUTE_PRICE_CEILING)
         }
 
