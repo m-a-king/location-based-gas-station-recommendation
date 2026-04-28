@@ -95,7 +95,7 @@ Table 2. Candidate selection cascade
 | ROUTE_PRICE_CEILING | (항상 시도) | 경로상 후보(폴리라인까지 직선 ≤ 500 m) 최저가 $p_{route}$를 cap으로 가격 $\leq p_{route}$ 후보만 보존 (경로상 후보 0개 시 fallback) |
 | PRICE_CAPPED | 잔여 후보 > 30 | 가격 오름차순 상위 30개만 유지 |
 
-1단계 POLYLINE_MBR이 공간을 관대하게 열고, 2단계 ROUTE_PRICE_CEILING은 경로상 후보의 최저가 $p_{route}$를 cap으로 두어 가격 $\leq p_{route}$ 후보만 보존한다. 식 (2) 하한 $\text{score}_i \geq p_i \ell$에 의해 $p_i > p_{route}$인 후보는 우회 비용이 0이라도 경로상 최저가 후보를 이길 수 없으므로 외부 호출 전에 정확히 배제 가능하다. 경로상 후보가 0개인 시나리오에서는 cap 미적용으로 fallback한다. 3단계 PRICE_CAPPED는 잔여 후보를 가격 상위 30개로 강제 상한하여 단계 3 호출 수를 보장한다. 이 cascade는 식 (2)의 수학적 하한과 deviation tolerance[4] 개념을 결합하여 호출 예산을 관리한다.
+1단계 폴리라인 MBR 수집(POLYLINE_MBR)이 공간을 관대하게 열고, 2단계 경로상 최저가 cap(ROUTE_PRICE_CEILING)은 경로상 후보의 최저가 $p_{route}$를 cap으로 두어 가격 $\leq p_{route}$ 후보만 보존한다. 식 (2) 하한 $\text{score}_i \geq p_i \ell$에 의해 $p_i > p_{route}$인 후보는 우회 비용이 0이라도 경로상 최저가 후보를 이길 수 없으므로 외부 호출 전에 정확히 배제 가능하다. 경로상 후보가 0개인 시나리오에서는 cap 미적용으로 fallback한다. 3단계 호출 예산 강제 상한(PRICE_CAPPED)은 잔여 후보를 가격 상위 30개로 잘라 단계 3 호출 수를 보장한다. 이 cascade는 식 (2)의 수학적 하한과 deviation tolerance[4] 개념을 결합하여 호출 예산을 관리한다.
 
 ### 3.5 Price Lower-Bound Pruning
 
@@ -111,7 +111,7 @@ $$
 p_i \ell \;>\; \text{score}^{(k)}_{\text{best}} \;\Longrightarrow\; \text{이후 모든 후보가 동일 조건 성립} \tag{3}
 $$
 
-이 성립하면 탐색을 종료해도 반환 결과의 최적성이 보존된다. 특히 경로상 후보(직선 ≤ 500 m)는 가격이 곧 점수가 되어 자연 baseline을 형성하며, 본 cascade는 이 baseline을 ROUTE_PRICE_CEILING(3.4)에서 단계 2 가격 cap으로 직접 활용한다.
+이 성립하면 탐색을 종료해도 반환 결과의 최적성이 보존된다. 특히 경로상 후보(직선 ≤ 500 m)는 가격이 곧 점수가 되어 자연 baseline을 형성하며, 본 cascade는 이 baseline을 단계 2 경로상 최저가 cap(3.4의 ROUTE_PRICE_CEILING)에서 직접 활용한다.
 
 ### 3.6 사례 연구
 
