@@ -125,27 +125,62 @@ class GasStationRouteRecommenderTest(
     }
 
     @Test
-    fun `후보가 N_THRESHOLD 30건을 초과하면 TIGHT_CORRIDOR 단계로 좁혀 corridor 밖 주유소를 제외한다`() {
-        // corridor 내 30건(polyline ≈ 450m) + corridor 밖 1건(≈ 3.3km, TIGHT_CORRIDOR 2km 초과).
-        // MBR buffer(≈ 6.6km)는 밖 1건까지 포함해야 2단계 필터 효과가 관찰된다
+    fun `ROUTE_PRICE_CEILING은 경로상 최저가보다 비싼 후보를 외부 호출 없이 배제한다`() {
+        // 31건(N>30 트리거). ON_*: 경로상(≈450m) 30건 1500원. OUT_HIGH: 경로상 외(≈3.6km) 1건 1600원.
+        // p_route = 1500. 가격 > 1500인 OUT_HIGH는 식 (2) 하한에 의해 1위가 될 수 없으므로 cap에서 정확히 배제.
         saveStations(
-            *((0 until 30).map { "IN_$it" to (37.05 to 127.005) } + ("OUT_1" to (37.05 to 127.04)))
+            *((0 until 30).map { "ON_$it" to (37.05 to 127.005) } + ("OUT_HIGH" to (37.05 to 127.04)))
                 .toTypedArray()
         )
         savePrices(
-            *((0 until 30).map { "IN_$it" to 1600 } + ("OUT_1" to 1500)).toTypedArray()
+            *((0 until 30).map { "ON_$it" to 1500 } + ("OUT_HIGH" to 1600)).toTypedArray()
         )
-
         whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), any()))
-            .thenReturn(Route(polyline = polyline, distanceMeters = 11200))
+            .thenReturn(Route(polyline = polyline, distanceMeters = baseRoute.distanceMeters + 100))
 
         val result = recommender.recommend(origin, destination, FuelType.GASOLINE, 40.0, 10.0, limit = 3)
 
-        result.scored.map { it.station.id } shouldNotContain "OUT_1"
+        result.scored.map { it.station.id } shouldNotContain "OUT_HIGH"
         verify(kakaoDirectionsClient, never()).searchRouteViaWaypoint(
             any(), any(),
             argThat { abs(wgs84.longitude - 127.04) < 0.001 && abs(wgs84.latitude - 37.05) < 0.001 }
         )
+    }
+
+    @Test
+    fun `N이 30 초과여도 경로상 후보가 0개면 ROUTE_PRICE_CEILING은 fallback하고 PRICE_CAPPED만 적용된다`() {
+        // 31건 모두 경로상 외(≈3.6km, ON_ROUTE_RADIUS 500m 초과). 경로상 후보 0개 → cap 미적용 fallback.
+        // 동가 1500으로 pruning 무력화하여 PRICE_CAPPED HARD_CAP 30이 그대로 호출 30회를 만듦.
+        saveStations(*(0 until 31).map { "OUT_$it" to (37.05 to 127.04) }.toTypedArray())
+        savePrices(*(0 until 31).map { "OUT_$it" to 1500 }.toTypedArray())
+        whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), any()))
+            .thenReturn(Route(polyline = polyline, distanceMeters = baseRoute.distanceMeters + 100))
+
+        recommender.recommend(origin, destination, FuelType.GASOLINE, 40.0, 10.0, limit = 3)
+
+        verify(kakaoDirectionsClient, times(30)).searchRouteViaWaypoint(any(), any(), any())
+    }
+
+    @Test
+    fun `cap 통과 후보가 limit보다 적으면 그 수만큼만 반환된다`() {
+        // 31건(N>30 트리거). ON_LOW: 경로상 1400원(p_route). HIGH_*: 경로상 30건 1500~1529원(p_route 초과).
+        // p_route = 1400. 가격 ≤ 1400은 ON_LOW 하나뿐 → 단계 3 호출도 1회, 결과도 1개.
+        saveStations(
+            *(listOf("ON_LOW" to (37.05 to 127.005)) +
+                (0 until 30).map { "HIGH_$it" to (37.05 to 127.005) }).toTypedArray()
+        )
+        savePrices(
+            *(listOf("ON_LOW" to 1400) +
+                (0 until 30).map { "HIGH_$it" to (1500 + it) }).toTypedArray()
+        )
+        whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), any()))
+            .thenReturn(Route(polyline = polyline, distanceMeters = baseRoute.distanceMeters + 100))
+
+        val result = recommender.recommend(origin, destination, FuelType.GASOLINE, 40.0, 10.0, limit = 3)
+
+        result.scored shouldHaveSize 1
+        result.scored[0].station.id shouldBe "ON_LOW"
+        verify(kakaoDirectionsClient, times(1)).searchRouteViaWaypoint(any(), any(), any())
     }
 
     @Test
