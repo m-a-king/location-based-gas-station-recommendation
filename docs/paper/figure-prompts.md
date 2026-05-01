@@ -4,35 +4,7 @@
 
 ---
 
-## [그림 1] 비용 인지 우회의 개념 — 경로상 vs 우회 후보의 지출 역전
-
-**본문 위치**: Ⅰ. 서론 중단
-**권장 포맷**: 16:9, 600 px 폭
-
-### 구성 (한국어 레이아웃 설명)
-
-- 출발지(●) — 도착지(▲)를 파란 실선 경로로 연결
-- ON_ROUTE 주유소: 경로 위 빨강 원, 가격 1,650원
-- OFF_ROUTE 주유소: 경로에서 소폭(≈2 km) 이탈, 초록 원, 가격 1,500원
-- 각 후보 옆 말풍선: "지출 66,033원 / 60,600원"
-- 하단 화살표: "OFF_ROUTE가 지출 5,400원 낮음"
-
-### 영문 생성 프롬프트
-
-```
-Clean minimal infographic map, top-down view, blue road from
-origin (filled circle, labeled '출발') to destination (triangle,
-labeled '도착'). Red gas pump icon directly on the road labeled
-'1,650원'. Green gas pump icon slightly off the route (2km
-detour) labeled '1,500원'. Two callout boxes showing total cost
-'66,033원' (red) and '60,600원' (green). Arrow between them with
-text 'save 5,400원'. Flat design, Korean-friendly labels, white
-background, soft pastel palette.
-```
-
----
-
-## [그림 2] 폴리라인 MBR 확장과 직선 거리–실제 우회 거리의 차이
+## [그림 1] 폴리라인 MBR 확장과 직선 거리–실제 우회 거리의 차이
 
 **본문 위치**: Ⅲ. 3.1 문제 정의 직하 (논문의 독창적 관찰 "3 km vs 500 m"을 시각화)
 **권장 포맷**: 4:3 또는 16:9, 700 px 폭
@@ -85,6 +57,5 @@ white background, single blue accent, academic paper style.
 
 ## 주의
 
-- 그림 3, 4, 5는 부록 A 분량 조정 결정에 따라 제외됨
-- 본 프롬프트를 기반으로 이미지 생성 후 hwp 본문에 `[그림 N] 캡션` 자리에 삽입
-- 이전 그림 2(시스템 처리 흐름)는 Ⅲ.2의 4단계 번호 목록과 정보 중복이 커 본 논문에서 제외됨. 위 MBR 개념도로 교체하여 Ⅲ.1 독창적 관찰의 시각적 방어력을 강화함
+- 이전 [그림 1] "비용 인지 우회의 개념" 캡션은 새 제목·메시지 정합화 과정에서 본문 자조어가 제거되며 함께 삭제됨. 본 논문은 그림 1개로 운영.
+- 본 프롬프트를 기반으로 이미지 생성 후 hwp 본문에 `[그림 1] 캡션` 자리에 삽입.
