@@ -19,7 +19,7 @@ This paper proposes a method for recommending gas stations along a route by over
 
 ## Key words
 
-lowest-price gas station, cost-optimal pathfinding, 2-hop re-query, minimum bounding rectangle, location-based service
+Lowest-price gas station, cost-optimal pathfinding, 2-hop re-query, minimum bounding rectangle, location-based service
 
 ## Ⅰ. 서 론
 
