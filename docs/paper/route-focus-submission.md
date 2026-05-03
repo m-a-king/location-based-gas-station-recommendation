@@ -11,11 +11,11 @@ Jaejung Jo\*, Hongcheol Lee\*, Gwangcheol Shin\*, and Byoungwoo Oh\*\*
 
 ## 요 약
 
-본 논문은 주유소를 들렀다 가는 경로(이하 경유 경로) 추천에서, 주유 없이 출발지에서 도착지로 가는 경로(이하 기본 경로) 주변으로 주유소 탐색 공간을 한정하던 기존 방식 대신, 그 기본 경로를 감싸는 직사각형 영역(MBR)과 약간의 여유 공간까지 탐색 공간을 확장해 최적의 주유소를 효율적으로 찾는 방법을 제안한다. 먼저 그 탐색 공간 안에서 기본 경로 위 주유소의 최저가보다 비싼 주유소를 미리 잘라낸 뒤, 각 경유 경로를 다시 계산해 주유 비용과 우회로 인한 연료·시간 비용을 합산한 점수로 경유 경로의 순위를 매긴다. 가격이 낮은 주유소부터 살펴보다가 더 살펴봐도 결과가 좋아질 수 없는 순간에 탐색을 멈춰 외부 API 호출 수를 줄이면서도 추천 결과의 정확성은 그대로 유지하고, 기본 경로상 가장 싼 주유소만 단순히 고르는 방식보다 실제 비용을 줄인다.
+본 논문은 주유소 경유 경로 추천에서 주유 없이 출발지에서 도착지로 가는 기본 경로 주변으로 주유소 탐색 공간을 한정하던 기존 방식 대신, 기본 경로를 감싸는 직사각형 영역(MBR)과 약간의 여유 공간까지 탐색 공간을 확장해 최적의 주유소를 찾는 방법을 제안한다. 확장된 공간에서 후보 주유소를 수집한 뒤, 기본 경로상 최저가를 기준으로 비효율적인 후보를 사전 제거하고, 각 후보를 경유하는 경로를 조회하여 주유 비용과 우회로 인한 연료·시간 비용을 통합한 값을 기준으로 순위를 결정한다. 이때 비용 개선이 불가능한 시점에 도달하면 탐색을 조기 종료하여 외부 API 호출을 줄이면서도 추천 결과의 최적성을 유지한다. 이를 통해 기존 방식 대비 실제 비용 절감 효과를 달성한다.
 
 ## Abstract
 
-This paper proposes a method to recommend a route through a cost-optimal gas station, expanding the search space — previously confined to the immediate vicinity of the planned route — to a minimum bounding rectangle (MBR) around the route, with a small buffer, enabling efficient identification of the most cost-effective station. Gas stations priced higher than the minimum on-route price are pruned in advance, since they cannot beat that baseline even with zero detour. The actual driving route through each remaining station is then recomputed, and stations are ranked by a score that combines fuel price with the fuel and time cost of the detour. Evaluation proceeds in ascending order of price, and the search terminates the moment further evaluation can no longer improve the result. The system thus bounds external routing-API calls while preserving recommendation correctness, and yields tangible cost savings over naively picking the cheapest gas station along the route.
+This paper proposes a method for recommending gas stations along a route by overcoming the limitation of conventional approaches that restrict the search space to the vicinity of the base route. The proposed method expands the search space to a minimum bounding rectangle (MBR) enclosing the route to identify candidate stations. Candidates are pruned based on the lowest on-route price, and each remaining option is evaluated by recomputing the actual route and integrating fuel and detour costs. The search terminates early when no further cost improvement is possible, reducing API calls while preserving optimality. As a result, the proposed method achieves cost savings compared to conventional approaches.
 
 ## Key words
 
