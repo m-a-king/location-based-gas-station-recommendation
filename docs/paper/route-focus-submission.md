@@ -11,11 +11,11 @@ Jaejung Jo\*, Hongcheol Lee\*, Gwangcheol Shin\*, and Byoungwoo Oh\*\*
 
 ## 요 약
 
-본 논문은 주유소 경유 경로 추천에서 주유 없이 출발지에서 도착지로 가는 기본 경로 주변으로 주유소 탐색 공간을 한정하던 기존 방식 대신, 기본 경로를 감싸는 직사각형 영역(MBR)과 약간의 여유 공간까지 탐색 공간을 확장해 최적의 주유소를 찾는 방법을 제안한다. 확장된 공간에서 후보 주유소 경유 경로를 수집한 뒤, 기본 경로상 최저가를 기준으로 비효율적인 후보를 사전 제거하고, 각 후보를 경유하는 경로를 조회하여 주유 비용과 우회로 인한 연료·시간 비용을 통합한 값을 기준으로 순위를 결정한다. 이때 비용 개선이 불가능한 시점에 도달하면 탐색을 조기 종료하여 외부 API 호출을 줄이면서도 추천 결과의 최적성을 유지한다. 이를 통해 기존 방식 대비 실제 비용 절감 효과를 달성한다. 또한 사용자 입력부터 외부 내비게이션 앱 연동까지를 포함한 운용 가능한 시스템으로 구현하였다.
+본 논문은 주유소 경유 경로 추천에서 주유 없이 출발지에서 도착지로 가는 기본 경로상으로 주유소 탐색 공간을 한정하던 기존 방식 대신, 기본 경로를 감싸는 직사각형 영역(MBR)과 약간의 여유 공간까지 탐색 공간을 확장해 최적의 주유소를 찾는 방법을 제안한다. 확장된 공간에서 후보 주유소 경유 경로를 수집한 뒤, 기본 경로상 최저가를 기준으로 비효율적인 후보를 사전 제거하고, 각 후보를 경유하는 경로를 조회하여 주유 비용과 우회로 인한 연료·시간 비용을 통합한 값을 기준으로 순위를 결정한다. 이때 비용 개선이 불가능한 시점에 도달하면 탐색을 조기 종료하여 외부 API 호출을 줄이면서도 추천 결과의 최적성을 유지한다. 이를 통해 기존 방식 대비 실제 비용 절감 효과를 달성한다. 또한 사용자 입력부터 외부 내비게이션 앱 연동까지를 포함한 운용 가능한 시스템으로 구현하였다.
 
 ## Abstract
 
-This paper proposes a method for recommending gas stations along a route by overcoming the limitation of conventional approaches that restrict the search space to the vicinity of the base route. The proposed method expands the search space to a minimum bounding rectangle (MBR) enclosing the route to identify candidate stations. Candidates are pruned based on the lowest on-route price, and each remaining option is evaluated by recomputing the actual route and integrating fuel and detour costs. The search terminates early when no further cost improvement is possible, reducing API calls while preserving optimality. As a result, the proposed method achieves cost savings compared to conventional approaches. The system is implemented end-to-end, from user input to external navigation app handoff.
+This paper proposes a method for recommending gas stations along a route by overcoming the limitation of conventional approaches that restrict candidates to stations on the base route. The proposed method expands the search space to a minimum bounding rectangle (MBR) enclosing the route to identify candidate stations. Candidates are pruned based on the lowest on-route price, and each remaining option is evaluated by recomputing the actual route and integrating fuel and detour costs. The search terminates early when no further cost improvement is possible, reducing API calls while preserving optimality. As a result, the proposed method achieves cost savings compared to conventional approaches. The system is implemented end-to-end, from user input to external navigation app handoff.
 
 ## Key words
 
@@ -50,7 +50,7 @@ Table 1. Service Comparison
 
 주유 비용 의사결정을 다룬 선행 연구로 Gas Station Problem[3]은 주유소 가격과 연료 용량을 반영해 이동 비용을 최소화하는 주유 전략을 결정한다. Deviation-Flow Refueling Location Model[4]은 운전자가 기본 경로에서 허용 가능한 수준의 우회(deviation tolerance)를 감수한다고 가정하며, 실제 CNG 운전자 관찰[5]은 기본 경로 위 주유소 선호가 10:1이며 평균 5.6분의 우회가 수용된다고 보고한다. 그러나 이들 연구는 주유 전략 결정이나 시설 입지에 머물러, 기본 경로 대비 우회 비용이나 주유 예정량 측면에서 결정하는 문제는 다루지 않았다.
 
-본 연구는 Gas Station Problem[3]의 주유 의사결정과 deviation tolerance[4][5]를 통합해 최저가 주유소 경유 경로 추천을 2-hop 재탐색으로 정식화한다.
+본 연구는 Gas Station Problem[3]의 주유 의사결정과 deviation tolerance[4][5]를 통합해, 후보 주유소를 경유지로 둔 경유 경로 재탐색으로 비용 최적 주유소 추천을 정식화한다.
 
 ## Ⅲ. 주유소 경유 경로의 비용 최적화 알고리즘
 
@@ -67,7 +67,7 @@ Table 1. Service Comparison
 3. **경유 재조회**: 각 후보를 경유지로 하는 경로(출발지 → 후보 주유소 → 도착지)를 Kakao Directions API로 재조회해 실측 우회 거리·시간을 얻으며, 가격 하한 pruning으로 호출 수를 제한한다(3.5절 참조).
 4. **순위화**: 식 (1)의 점수로 오름차순 정렬해 **최대 3개까지 반환**한다(유효 후보가 부족하면 0~2개). 3.5절의 pruning으로 재조회를 조기 종료해도 반환 결과의 최적성은 수학적으로 보존된다.
 
-이는 고정 경로를 전제로 주유 시점만 결정하는 Gas Station Problem[3]과 달리, 경로 자체를 후보에 따라 재구성한다는 점에서 구별된다.
+이는 고정 경로를 전제로 주유 시점만 결정하는 Gas Station Problem[3]과 달리, 후보별로 경유 경로를 재계산한다는 점에서 구별된다.
 
 ### 3.3 비용 모델 (Cost Model)
 
@@ -130,7 +130,7 @@ Table 3. Top-1 recommendation price by scenario
 
 ## Ⅳ. 결 론
 
-본 논문은 경로상 국소 탐색의 한계를 지적하고, 주유소 추천을 비용 인지 우회를 통한 2-hop 재탐색으로 재정식화하여 지출 최소화 관점의 추천을 실현하였다. 입지 최적화의 deviation tolerance[4]를 운용 시점 추천으로 전환하였으며, 실측 사례에서 도심 시나리오의 사각지대 보완과 기존 서비스 대비 가격 우위를 확인하였다. 본 시스템은 출발지·도착지 입력 UI와 선택된 경유 경로의 외부 내비게이션 앱 연동을 포함하여, 추천 결과를 사용자가 즉시 운행에 활용할 수 있는 형태로 구현되었다. 향후 MBR 확장 폭(buffer)과 경로상 후보 식별 임계값(직선 500 m) 결정 규칙의 데이터 기반 학습, 주유소 밀도 지표를 활용한 cascade 분기 최적화, 개별 운전자의 수용 우회 범위 개인화 학습으로 확장할 수 있다.
+본 논문은 기본 경로상으로 후보를 한정하는 기존 방식의 한계를 지적하고, 경유 경로 재탐색을 통한 비용 통합 점수로 주유소 추천을 재정식화하였다. 입지 최적화의 deviation tolerance[4]를 운용 시점 추천으로 전환하였으며, 실측 사례에서 도심 시나리오의 사각지대 보완과 기존 서비스 대비 가격 우위를 확인하였다. 본 시스템은 출발지·도착지 입력 UI와 선택된 경유 경로의 외부 내비게이션 앱 연동을 포함하여, 추천 결과를 사용자가 즉시 운행에 활용할 수 있는 형태로 구현되었다. 향후 MBR 확장 폭(buffer)과 경로상 후보 식별 임계값(직선 500 m) 결정 규칙의 데이터 기반 학습, 주유소 밀도 지표를 활용한 cascade 분기 최적화, 개별 운전자의 수용 우회 범위 개인화 학습으로 확장할 수 있다.
 
 ## 참 고 문 헌
 
