@@ -2,7 +2,7 @@
 
 조재중\*, 이홍철\*, 신광철\*, 오병우\*\*
 
-## Cost-Optimal Routing System with a Gas Station Stop
+## A Cost-Optimal Routing System for Gas Station Recommendation
 
 Jaejung Jo\*, Hongcheol Lee\*, Gwangcheol Shin\*, and Byoungwoo Oh\*\*
 
