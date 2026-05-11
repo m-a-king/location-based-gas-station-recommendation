@@ -141,5 +141,5 @@ Fig. 1. Recommendation result of the proposed system (Case 1, Dongdaegu Station-
 1. M. Brons, P. Nijkamp, E. Pels, and P. Rietveld, "A meta-analysis of the price elasticity of gasoline demand: A system of equations approach", Tinbergen Institute Discussion Paper, no. 06-106/3, 2006.
 2. S. Lee, U. Lee, and Y. Kim, "An Empirical Study on the Effect of Choice Factors of Gas Station on Repurchase Intention", Journal of Digital Convergence, vol. 7, no. 3, pp. 83-92, Jan. 2009.
 3. S. Khuller, A. Malekian, and J. Mestre, "To fill or not to fill: The gas station problem", ACM Transactions on Algorithms (TALG), vol. 7, no. 3, pp. 1-16, Jun. 2011.
-4. J. G. Kim and M. Kuby, "The deviation-flow refueling location model for optimizing a network of refueling stations", International Journal of Hydrogen Energy, vol. 37, no. 6, pp. 5406-5420, Mar. 2012.
-5. S. Kelley and M. Kuby, "On the way or around the corner? Observed refueling choices of alternative-fuel drivers in Southern California", Journal of Transport Geography, vol. 33, pp. 258-267, Dec. 2013.
+4. J. G. Kim and M. Kuby, "The deviation-flow refueling location model for optimizing a network of refueling stations", International Journal of Hydrogen Energy, vol. 37, no. 6, pp. 5406–5420, Mar. 2012.
+5. S. Kelley and M. Kuby, "On the way or around the corner? Observed refueling choices of alternative-fuel drivers in Southern California", Journal of Transport Geography, vol. 33, pp. 258–267, Dec. 2013.
