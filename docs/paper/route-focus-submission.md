@@ -125,22 +125,17 @@ Table 3. Top-1 recommendation price by scenario
 | 4 | 지방 도심 (대구역-동대구역) | **1,940** | — | — |
 | 5 | 희소 구간 (춘천-홍천) | **1,985** | 1,985 | 1,985 |
 
-본 시스템은 시나리오별로 상이한 효과를 보였다(그림 1, 2). 사례 1(중거리, 동대구역-금오공대)에서는 본 시스템이 1,950원/L를 추천하여 기존 서비스 대비 **42원/L** 우위(40 L 기준 약 1,680원 절감)를 확인하였다. 지방 도심(사례 4)에서는 기존 서비스가 경로상 후보를 찾지 못하는 사각지대를 MBR 확장으로 보완하였다. 장거리 고속도로(사례 3)와 주유소 희소 구간(사례 5)에서는 후보 풀이 좁아 기존 서비스와 큰 차이를 보이지 않았다. 전반적으로 본 시스템의 차별화는 도심·중거리 시나리오에서 뚜렷하였다. 추천된 경유 경로는 사용자가 외부 내비게이션 앱으로 즉시 이어받아 운행에 활용할 수 있다(그림 3).
+본 시스템은 시나리오별로 상이한 효과를 보였다(그림 1, 2). 사례 1(중거리, 동대구역-금오공대)에서는 본 시스템이 1,950원/L를 추천하여 기존 서비스 대비 **42원/L** 우위(40 L 기준 약 1,680원 절감)를 확인하였다. 지방 도심(사례 4)에서는 기존 서비스가 경로상 후보를 찾지 못하는 사각지대를 MBR 확장으로 보완하였다. 장거리 고속도로(사례 3)와 주유소 희소 구간(사례 5)에서는 후보 풀이 좁아 기존 서비스와 큰 차이를 보이지 않았다. 전반적으로 본 시스템의 차별화는 도심·중거리 시나리오에서 뚜렷하였다. 추천된 경유 경로는 사용자가 외부 내비게이션 앱으로 즉시 이어받아 운행에 활용할 수 있다.
 
 ![그림 1](figures/result-existing-services.png)
 
-그림 1. 기존 서비스 추천 결과: (a) 오피넷, (b) 오일나우 (2026-05-XX 캡처, 학술 비교 인용)
-Figure 1. Recommendation results from existing services: (a) Opinet, (b) OilNow (captured on 2026-05-XX for academic comparison)
+그림 1. 기존 서비스 추천 결과 (사례 1, 동대구역-금오공대): (a) 오피넷, (b) 오일나우 (2026-05-XX 캡처, 학술 비교 인용)
+Figure 1. Recommendation results from existing services (Case 1, Dongdaegu Stn.-KIT): (a) Opinet, (b) OilNow (captured on 2026-05-XX for academic comparison)
 
 ![그림 2](figures/result-proposed-system.png)
 
-그림 2. 본 시스템 추천 결과 - 추천 후보 3곳의 경유 경로 동시 미리보기
-Figure 2. Recommendation result of the proposed system - simultaneous preview of via-routes for top-3 candidates
-
-![그림 3](figures/navigation-handoff.png)
-
-그림 3. 외부 내비게이션 앱 연동
-Figure 3. External navigation app handoff
+그림 2. 본 시스템 추천 결과 (사례 1, 동대구역-금오공대) - 추천 후보 3곳의 경유 경로 동시 미리보기
+Figure 2. Recommendation result of the proposed system (Case 1, Dongdaegu Stn.-KIT) - simultaneous preview of via-routes for top-3 candidates
 
 ## Ⅳ. 결 론
 
