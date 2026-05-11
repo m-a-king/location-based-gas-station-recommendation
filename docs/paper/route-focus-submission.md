@@ -23,9 +23,9 @@ gas station, cost-optimal routing, minimum bounding rectangle, location-based se
 
 ## Ⅰ. 서 론
 
-유가는 수요·공급, 환율, 지정학적 요인 등으로 일상적으로 등락을 반복한다. 예를 들어, 2026년 미국-이란 간 군사적 충돌과 호르무즈 해협 봉쇄로 원유 공급에 차질이 발생하였다[1]. 이러한 유가 변동성은 운전자의 이동 비용에 직접적인 영향을 미친다.
+유가는 수요·공급, 환율, 지정학적 요인 등으로 일상적으로 등락을 반복한다. 예를 들어, 2026년 미국-이란 간 군사적 충돌과 호르무즈 해협 봉쇄로 원유 공급에 차질이 발생하였다. 이러한 유가 변동성은 운전자의 이동 비용에 직접적인 영향을 미친다.
 
-휘발유는 가격 변화에도 불구하고 수요가 크게 변하지 않는 특성을 보인다[2]. 따라서 소비자는 이동 자체를 줄이기보다 주유 비용을 낮추는 방향으로 선택을 조정하는 경향을 보인다. 또한 주유소 선택 요인에 관한 연구[3]에서 가격이 높을수록 재방문 의도가 낮아지는 것으로 보고되며, 주유소 간 리터당 가격 차이는 소비자의 주유소 선택에 중요하게 작용한다.
+휘발유는 가격 변화에도 불구하고 수요가 크게 변하지 않는 특성을 보인다[1]. 따라서 소비자는 이동 자체를 줄이기보다 주유 비용을 낮추는 방향으로 선택을 조정하는 경향을 보인다. 또한 주유소 선택 요인에 관한 연구[2]에서 가격이 높을수록 재방문 의도가 낮아지는 것으로 보고되며, 주유소 간 리터당 가격 차이는 소비자의 주유소 선택에 중요하게 작용한다.
 
 일반적으로 경로는 도로의 기하학적 형상을 반영하여, 일련의 직선 세그먼트들이 연결된 폴리라인(Polyline) 형태로 모델링된다. 기본 경로상 주유소와 경로를 벗어나 접근 가능한 주유소 간에는 리터당 가격 차이가 존재해, 추가 이동 비용을 고려해도 우회 후보가 더 경제적인 경우가 있다.
 
@@ -48,9 +48,9 @@ Table 1. Service comparison
 
 기존 서비스는 기본 경로 주변 후보만을 대상으로 정보를 제공하며, 경유 경로 재계산이나 우회 비용을 고려한 비용 최적화 기능은 지원하지 않는다.
 
-주유 비용 의사결정을 다룬 선행 연구로 Gas Station Problem[4]은 주유소 가격과 연료 용량을 반영해 이동 비용을 최소화하는 주유 전략을 결정한다. Deviation-Flow Refueling Location Model[5]은 운전자가 기본 경로에서 허용 가능한 수준의 우회(deviation tolerance)를 감수한다고 가정하며, 실제 CNG 운전자 관찰[6]은 기본 경로 위 주유소를 거주지 근처 주유소 대비 10:1로 선호하며, 평균 5.6분의 우회를 수용한다고 보고한다. 그러나 이들 연구는 주유 전략 결정이나 시설 입지에 머물러, 기본 경로 대비 우회 비용이나 주유 예정량 측면에서 결정하는 문제는 다루지 않았다.
+주유 비용 의사결정을 다룬 선행 연구로 Gas Station Problem[3]은 주유소 가격과 연료 용량을 반영해 이동 비용을 최소화하는 주유 전략을 결정한다. Deviation-Flow Refueling Location Model[4]은 운전자가 기본 경로에서 허용 가능한 수준의 우회(deviation tolerance)를 감수한다고 가정하며, 실제 CNG 운전자 관찰[5]은 기본 경로 위 주유소를 거주지 근처 주유소 대비 10:1로 선호하며, 평균 5.6분의 우회를 수용한다고 보고한다. 그러나 이들 연구는 주유 전략 결정이나 시설 입지에 머물러, 기본 경로 대비 우회 비용이나 주유 예정량 측면에서 결정하는 문제는 다루지 않았다.
 
-본 연구는 Gas Station Problem[4]의 주유 의사결정과 deviation tolerance[5][6]를 통합해, 후보 주유소를 경유지로 둔 경유 경로 재탐색으로 비용 최적 주유소 추천을 정식화한다.
+본 연구는 Gas Station Problem[3]의 주유 의사결정과 deviation tolerance[4][5]를 통합해, 후보 주유소를 경유지로 둔 경유 경로 재탐색으로 비용 최적 주유소 추천을 정식화한다.
 
 ## Ⅲ. 경유 경로 재계산 기반 주유소 추천 시스템
 
@@ -67,7 +67,7 @@ Table 1. Service comparison
 3. **경유 재조회**: 각 후보를 경유지로 하는 경로(출발지 → 후보 주유소 → 도착지)를 Kakao Directions API로 재조회해 실측 우회 거리·시간을 얻으며, 가격 하한 가지치기로 호출 수를 제한한다(3.5절 참조).
 4. **순위화**: 식 (1)의 점수로 오름차순 정렬해 **최대 3개까지 반환**한다(유효 후보가 부족하면 0~2개). 3.5절의 가지치기로 재조회를 조기 종료해도 반환 결과의 최적성은 수학적으로 보존된다.
 
-이는 고정 경로를 전제로 주유 시점만 결정하는 Gas Station Problem[4]과 달리, 후보별로 경유 경로를 재계산한다는 점에서 구별된다.
+이는 고정 경로를 전제로 주유 시점만 결정하는 Gas Station Problem[3]과 달리, 후보별로 경유 경로를 재계산한다는 점에서 구별된다.
 
 ### 3.3 비용 모델
 
@@ -77,7 +77,7 @@ $$
 \text{score}_i \;=\; p_i \ell \;+\; \frac{d_i/1000}{\eta} p_i \;+\; \frac{t_i}{3600} w \tag{1}
 $$
 
-여기서 $p_i$는 유종 가격(원/L), $\ell$은 주유 예정량(L), $d_i$는 후보 경유 시 기본 경로 대비 우회 거리(m), $\eta$는 차량 연비(km/L), $t_i$는 우회 소요 시간(s), $w$는 2026년 최저시급(10,320원)을 적용한 우회 시간 기회 비용 단가이다. $d_i$와 $t_i$는 단계 3의 경유 경로 응답에서 직접 산출되며, API 오차로 음수가 관측되는 경우 0으로 보정한다. 가격 절감이 우회 비용을 상회할 때에만 후보가 경로상 최저가를 이긴다. 비선형 페널티를 도입하지 않은 것은 실증[6]상 개인 운전자의 우회 결정이 단순 합산 비교와 정합하기 때문이다.
+여기서 $p_i$는 유종 가격(원/L), $\ell$은 주유 예정량(L), $d_i$는 후보 경유 시 기본 경로 대비 우회 거리(m), $\eta$는 차량 연비(km/L), $t_i$는 우회 소요 시간(s), $w$는 2026년 최저시급(10,320원)을 적용한 우회 시간 기회 비용 단가이다. $d_i$와 $t_i$는 단계 3의 경유 경로 응답에서 직접 산출되며, API 오차로 음수가 관측되는 경우 0으로 보정한다. 가격 절감이 우회 비용을 상회할 때에만 후보가 경로상 최저가를 이긴다. 비선형 페널티를 도입하지 않은 것은 실증[5]상 개인 운전자의 우회 결정이 단순 합산 비교와 정합하기 때문이다.
 
 ### 3.4 확장 탐색 공간의 구성과 단계적 압축
 
@@ -92,7 +92,7 @@ Table 2. Candidate selection stages
 | 2 | 경로상 최저가 기반 가격 상한 | 경로상 후보 최저가를 기준으로 그 이하 가격의 후보만 보존 |
 | 3 | 외부 API 호출 수 강제 상한 | 가격 오름차순 상위 30개만 유지 |
 
-1단계 경로 MBR 후보 수집이 공간을 관대하게 열고, 2단계 경로상 최저가 기반 가격 상한은 경로상 후보의 최저가를 상한으로 두어 가격이 그 이하인 후보만 보존한다. 식 (2) 하한 $\text{score}_i \geq p_i \ell$에 의해 가격이 경로상 최저가보다 비싼 후보는 우회 비용이 0이라도 경로상 최저가 후보를 이길 수 없으므로 외부 API 호출 전에 정확히 배제 가능하다. 경로상 후보가 0개인 시나리오에서는 가격 상한을 적용하지 않는다. 3단계 외부 API 호출 수 강제 상한은 잔여 후보를 가격 오름차순 상위 30개로 잘라 외부 API 호출 수를 30회로 보장한다. 이 단계적 압축은 식 (2)의 수학적 하한과 deviation tolerance[5] 개념을 결합하여 외부 API 호출 수를 관리한다.
+1단계 경로 MBR 후보 수집이 공간을 관대하게 열고, 2단계 경로상 최저가 기반 가격 상한은 경로상 후보의 최저가를 상한으로 두어 가격이 그 이하인 후보만 보존한다. 식 (2) 하한 $\text{score}_i \geq p_i \ell$에 의해 가격이 경로상 최저가보다 비싼 후보는 우회 비용이 0이라도 경로상 최저가 후보를 이길 수 없으므로 외부 API 호출 전에 정확히 배제 가능하다. 경로상 후보가 0개인 시나리오에서는 가격 상한을 적용하지 않는다. 3단계 외부 API 호출 수 강제 상한은 잔여 후보를 가격 오름차순 상위 30개로 잘라 외부 API 호출 수를 30회로 보장한다. 이 단계적 압축은 식 (2)의 수학적 하한과 deviation tolerance[4] 개념을 결합하여 외부 API 호출 수를 관리한다.
 
 ### 3.5 가격 하한 가지치기
 
@@ -139,13 +139,12 @@ Figure 2. Recommendation result of the proposed system (Case 1, Dongdaegu Stn.-K
 
 ## Ⅳ. 결 론
 
-본 논문은 기본 경로상으로 후보를 한정하는 기존 방식의 한계를 지적하고, 경유 경로 재탐색을 통한 비용 통합 점수로 주유소 추천을 제안하였다. 입지 최적화의 deviation tolerance[5]를 운용 시점 추천으로 전환하였으며, 실측 사례에서 도심 시나리오의 사각지대 보완과 기존 서비스 대비 가격 우위를 확인하였다. 본 시스템은 출발지·도착지 입력 UI와 선택된 경유 경로의 외부 내비게이션 앱 연동을 포함하여, 추천 결과를 사용자가 즉시 운행에 활용할 수 있는 형태로 구현되었다. 향후 시간대·요일에 따른 우회 비용 변동을 누적 데이터로 반영하고, 현재 정적인 우회 허용 상한과 경로상 후보 식별 기준을 사용자의 추천 채택·거부 신호로 학습할 수 있다. 또한 [6]의 평균 수용 우회 범위를 개별 운전자 데이터로 보정하여 개인화 추천으로 확장할 수 있다.
+본 논문은 기본 경로상으로 후보를 한정하는 기존 방식의 한계를 지적하고, 경유 경로 재탐색을 통한 비용 통합 점수로 주유소 추천을 제안하였다. 입지 최적화의 deviation tolerance[4]를 운용 시점 추천으로 전환하였으며, 실측 사례에서 도심 시나리오의 사각지대 보완과 기존 서비스 대비 가격 우위를 확인하였다. 본 시스템은 출발지·도착지 입력 UI와 선택된 경유 경로의 외부 내비게이션 앱 연동을 포함하여, 추천 결과를 사용자가 즉시 운행에 활용할 수 있는 형태로 구현되었다. 향후 시간대·요일에 따른 우회 비용 변동을 누적 데이터로 반영하고, 현재 정적인 우회 허용 상한과 경로상 후보 식별 기준을 사용자의 추천 채택·거부 신호로 학습할 수 있다. 또한 [5]의 평균 수용 우회 범위를 개별 운전자 데이터로 보정하여 개인화 추천으로 확장할 수 있다.
 
 ## 참 고 문 헌
 
-1. International Energy Agency, "Oil Market Report - April 2026," IEA, Paris, France, Apr. 2026. [Online]. Available: https://www.iea.org/reports/oil-market-report-april-2026
-2. M. Brons, P. Nijkamp, E. Pels, and P. Rietveld, "A meta-analysis of the price elasticity of gasoline demand: A system of equations approach," Tinbergen Institute Discussion Paper, no. 06-106/3, 2006.
-3. S. Lee, U. Lee, and Y. Kim, "An Empirical Study on the Effect of Choice Factors of Gas Station on Repurchase Intention," Journal of Digital Convergence, vol. 7, no. 3, pp. 83-92, Jan. 2009.
-4. S. Khuller, A. Malekian, and J. Mestre, "To fill or not to fill: The gas station problem," ACM Transactions on Algorithms (TALG), vol. 7, no. 3, pp. 1-16, Jun. 2011.
-5. J. G. Kim and M. Kuby, "The deviation-flow refueling location model for optimizing a network of refueling stations," International Journal of Hydrogen Energy, vol. 37, no. 6, pp. 5406-5420, Mar. 2012.
-6. S. Kelley and M. Kuby, "On the way or around the corner? Observed refueling choices of alternative-fuel drivers in Southern California," Journal of Transport Geography, vol. 33, pp. 258-267, Dec. 2013.
+1. M. Brons, P. Nijkamp, E. Pels, and P. Rietveld, "A meta-analysis of the price elasticity of gasoline demand: A system of equations approach," Tinbergen Institute Discussion Paper, no. 06-106/3, 2006.
+2. S. Lee, U. Lee, and Y. Kim, "An Empirical Study on the Effect of Choice Factors of Gas Station on Repurchase Intention," Journal of Digital Convergence, vol. 7, no. 3, pp. 83-92, Jan. 2009.
+3. S. Khuller, A. Malekian, and J. Mestre, "To fill or not to fill: The gas station problem," ACM Transactions on Algorithms (TALG), vol. 7, no. 3, pp. 1-16, Jun. 2011.
+4. J. G. Kim and M. Kuby, "The deviation-flow refueling location model for optimizing a network of refueling stations," International Journal of Hydrogen Energy, vol. 37, no. 6, pp. 5406-5420, Mar. 2012.
+5. S. Kelley and M. Kuby, "On the way or around the corner? Observed refueling choices of alternative-fuel drivers in Southern California," Journal of Transport Geography, vol. 33, pp. 258-267, Dec. 2013.
