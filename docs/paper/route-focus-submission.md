@@ -23,7 +23,7 @@ gas station, cost-optimal routing, minimum bounding rectangle, location-based se
 
 ## Ⅰ. 서 론
 
-유가는 수요·공급, 환율, 지정학적 요인 등으로 일상적으로 등락을 반복한다. 예를 들어, 2026년 미국–이란 간 군사적 충돌과 호르무즈 해협 봉쇄로 원유 공급 차질이 발생하였으며[1], 이러한 유가 변동성은 운전자의 이동 비용에 직접적인 영향을 미친다.
+유가는 수요·공급, 환율, 지정학적 요인 등으로 일상적으로 등락을 반복한다. 예를 들어, 2026년 미국-이란 간 군사적 충돌과 호르무즈 해협 봉쇄로 원유 공급 차질이 발생하였으며[1], 이러한 유가 변동성은 운전자의 이동 비용에 직접적인 영향을 미친다.
 
 휘발유는 가격 변화에도 불구하고 수요가 크게 변하지 않는 특성을 보인다[2]. 따라서 소비자는 이동 자체를 줄이기보다 주유 비용을 낮추는 방향으로 선택을 조정하는 경향을 보인다. 또한 주유소 선택 요인에 관한 연구[3]에서 가격이 높을수록 재방문 의도가 낮아지는 것으로 보고되며, 주유소 간 리터당 가격 차이는 소비자의 주유소 선택에 중요하게 작용한다.
 
@@ -62,7 +62,7 @@ Table 1. Service comparison
 
 제안 시스템은 출발지·도착지 입력 UI, 추천 알고리즘, 선택된 경유 경로의 외부 내비게이션 앱 연동을 포함하는 운용 가능한 형태로 구현되었으며, 본 절은 그 핵심인 추천 알고리즘을 다룬다. 추천 알고리즘은 네 단계로 동작하며, 기본 경로에 후보 주유소를 경유지로 삽입한 경유 경로를 재조회해 각 후보의 실측 우회 비용을 산출한다.
 
-1. **기본 경로**: Kakao Mobility Directions API로 출발지–도착지 경로의 폴리라인과 기준 거리·시간을 얻는다.
+1. **기본 경로**: Kakao Mobility Directions API로 출발지-도착지 경로의 폴리라인과 기준 거리·시간을 얻는다.
 2. **후보 수집**: 기본 경로의 MBR에 우회 허용 상한의 두 배만큼 여유 영역을 더해 탐색 공간을 구성하고 내부 주유소를 DB에서 조회한다. 후보가 과다하면 단계적으로 압축한다(3.4절 참조).
 3. **경유 재조회**: 각 후보를 경유지로 하는 경로(출발지 → 후보 주유소 → 도착지)를 Kakao Directions API로 재조회해 실측 우회 거리·시간을 얻으며, 가격 하한 가지치기로 호출 수를 제한한다(3.5절 참조).
 4. **순위화**: 식 (1)의 점수로 오름차순 정렬해 **최대 3개까지 반환**한다(유효 후보가 부족하면 0~2개). 3.5절의 가지치기로 재조회를 조기 종료해도 반환 결과의 최적성은 수학적으로 보존된다.
@@ -119,11 +119,11 @@ Table 3. Top-1 recommendation price by scenario
 
 | # | 케이스 | 본 시스템 | 오피넷 | 오일나우 |
 |:---:|---|---:|---:|---:|
-| 1 | 단거리 (강남역–교대역) | **2,011** | — | — |
-| 2 | 중거리 (잠실역–수원역) | **1,985** | 1,994 | 1,985 |
-| 3 | 장거리 고속도로 (서초IC–서대전IC) | **1,986** | 1,984 | 1,984 |
-| 4 | 지방 도심 (대구역–동대구역) | **1,940** | — | — |
-| 5 | 희소 구간 (춘천–홍천) | **1,985** | 1,985 | 1,985 |
+| 1 | 단거리 (강남역-교대역) | **2,011** | — | — |
+| 2 | 중거리 (잠실역-수원역) | **1,985** | 1,994 | 1,985 |
+| 3 | 장거리 고속도로 (서초IC-서대전IC) | **1,986** | 1,984 | 1,984 |
+| 4 | 지방 도심 (대구역-동대구역) | **1,940** | — | — |
+| 5 | 희소 구간 (춘천-홍천) | **1,985** | 1,985 | 1,985 |
 | 6 | 지방 중거리 | **1,954** | 1,954 | 1,983 |
 
 본 시스템은 시나리오별로 상이한 효과를 보였다(그림 1, 2). 단거리·지방 도심(사례 1, 4)에서는 기존 서비스가 경로상 후보를 찾지 못하는 사각지대를 MBR 확장으로 보완하였다. 사례 6에서는 본 시스템이 6 km 우회 후보(1,940원/L)를 추가로 발견하였으나 식 (1)의 점수에서 우회 비용이 가격 절감을 상회해 경로상 1위(대광셀프, 1,954원/L)를 유지하여 점수 기반 의사결정의 정확성을 보였으며, 오일나우 대비 **29원/L** 우위(40 L 기준 약 1,160원 절감)를 확인하였다. 장거리 고속도로(사례 3)와 주유소 희소 구간(사례 5)에서는 후보 풀이 좁아 기존 서비스와 큰 차이를 보이지 않았다. 전반적으로 본 시스템의 차별화는 도심·중거리 시나리오에서 뚜렷하였다. 추천된 경유 경로는 사용자가 외부 내비게이션 앱으로 즉시 이어받아 운행에 활용할 수 있다(그림 3).
@@ -135,8 +135,8 @@ Figure 1. Recommendation results from existing services: (a) Opinet, (b) OilNow 
 
 ![그림 2](figures/result-proposed-system.png)
 
-그림 2. 본 시스템 추천 결과 — 추천 후보 3곳의 경유 경로 동시 미리보기
-Figure 2. Recommendation result of the proposed system — simultaneous preview of via-routes for top-3 candidates
+그림 2. 본 시스템 추천 결과 - 추천 후보 3곳의 경유 경로 동시 미리보기
+Figure 2. Recommendation result of the proposed system - simultaneous preview of via-routes for top-3 candidates
 
 ![그림 3](figures/navigation-handoff.png)
 
@@ -149,9 +149,9 @@ Figure 3. External navigation app handoff
 
 ## 참 고 문 헌
 
-1. International Energy Agency, "Oil Market Report — April 2026," IEA, Paris, France, Apr. 2026. [Online]. Available: https://www.iea.org/reports/oil-market-report-april-2026
+1. International Energy Agency, "Oil Market Report - April 2026," IEA, Paris, France, Apr. 2026. [Online]. Available: https://www.iea.org/reports/oil-market-report-april-2026
 2. M. Brons, P. Nijkamp, E. Pels, and P. Rietveld, "A meta-analysis of the price elasticity of gasoline demand: A system of equations approach," Tinbergen Institute Discussion Paper, no. 06-106/3, 2006.
-3. S. Lee, U. Lee, and Y. Kim, "An Empirical Study on the Effect of Choice Factors of Gas Station on Repurchase Intention," Journal of Digital Convergence, vol. 7, no. 3, pp. 83–92, Jan. 2009.
-4. S. Khuller, A. Malekian, and J. Mestre, "To fill or not to fill: The gas station problem," ACM Transactions on Algorithms (TALG), vol. 7, no. 3, pp. 1–16, Jun. 2011.
-5. J. G. Kim and M. Kuby, "The deviation-flow refueling location model for optimizing a network of refueling stations," International Journal of Hydrogen Energy, vol. 37, no. 6, pp. 5406–5420, Mar. 2012.
-6. S. Kelley and M. Kuby, "On the way or around the corner? Observed refueling choices of alternative-fuel drivers in Southern California," Journal of Transport Geography, vol. 33, pp. 258–267, Dec. 2013.
+3. S. Lee, U. Lee, and Y. Kim, "An Empirical Study on the Effect of Choice Factors of Gas Station on Repurchase Intention," Journal of Digital Convergence, vol. 7, no. 3, pp. 83-92, Jan. 2009.
+4. S. Khuller, A. Malekian, and J. Mestre, "To fill or not to fill: The gas station problem," ACM Transactions on Algorithms (TALG), vol. 7, no. 3, pp. 1-16, Jun. 2011.
+5. J. G. Kim and M. Kuby, "The deviation-flow refueling location model for optimizing a network of refueling stations," International Journal of Hydrogen Energy, vol. 37, no. 6, pp. 5406-5420, Mar. 2012.
+6. S. Kelley and M. Kuby, "On the way or around the corner? Observed refueling choices of alternative-fuel drivers in Southern California," Journal of Transport Geography, vol. 33, pp. 258-267, Dec. 2013.
