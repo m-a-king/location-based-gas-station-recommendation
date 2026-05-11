@@ -11,11 +11,11 @@ Jaejung Jo\*, Hongcheol Lee\*, Gwangcheol Shin\*, and Byoungwoo Oh\*\*
 
 ## 요 약
 
-본 논문은 주유소 경유 경로 추천에서 주유 없이 출발지에서 도착지로 가는 기본 경로상으로 주유소 탐색 공간을 한정하던 기존 방식 대신, 기본 경로를 감싸는 최소경계사각형(MBR)과 약간의 여유 공간까지 탐색 공간을 확장해 최적의 주유소를 추천하는 방법을 제안한다. 확장된 공간에서 후보 주유소를 수집한 뒤, 기본 경로상 최저가를 기준으로 비효율적인 후보를 사전 제거하고, 각 후보를 경유하는 경로를 조회하여 주유 비용과 우회로 인한 연료·시간 비용을 통합한 값을 기준으로 순위를 결정한다. 이때 비용 개선이 불가능한 시점에 도달하면 탐색을 조기 종료하여 외부 API 호출을 줄이면서도 추천 결과의 최적성을 유지한다. 이를 통해 기존 방식 대비 실제 비용 절감 효과를 달성한다. 또한 사용자 입력부터 외부 내비게이션 앱 연동까지를 포함한 운용 가능한 시스템으로 구현하였다.
+본 논문은 주유소 경유 경로 추천에서 주유 없이 출발지에서 도착지로 가는 기본 경로상으로 주유소 탐색 공간을 한정하던 기존 방식 대신, 기본 경로를 감싸는 최소경계사각형과 약간의 여유 공간까지 탐색 공간을 확장해 최적의 주유소를 추천하는 방법을 제안한다. 확장된 공간에서 후보 주유소를 수집한 뒤, 기본 경로상 최저가를 기준으로 비효율적인 후보를 사전 제거하고, 각 후보를 경유하는 경로를 조회하여 주유 비용과 우회로 인한 연료·시간 비용을 통합한 값을 기준으로 순위를 결정한다. 이때 비용 개선이 불가능한 시점에 도달하면 탐색을 조기 종료하여 외부 API 호출을 줄이면서도 추천 결과의 최적성을 유지한다. 이를 통해 기존 방식 대비 실제 비용 절감 효과를 달성한다. 또한 사용자 입력부터 외부 내비게이션 앱 연동까지를 포함한 운용 가능한 시스템으로 구현하였다.
 
 ## Abstract
 
-This paper proposes a method for recommending gas stations along a route by overcoming the limitation of conventional approaches that restrict candidates to stations on the base route. The proposed method expands the search space to a minimum bounding rectangle (MBR) enclosing the route to identify candidate stations. Candidates are pruned based on the lowest on-route price, and each remaining option is evaluated by recomputing the actual route and integrating fuel and detour costs. The search terminates early when no further cost improvement is possible, reducing API calls while preserving optimality. As a result, the proposed method achieves cost savings compared to conventional approaches. The system is implemented end-to-end, from user input to external navigation app handoff.
+This paper proposes a method for recommending gas stations along a route by overcoming the limitation of conventional approaches that restrict candidates to stations on the base route. The proposed method expands the search space to a minimum bounding rectangle enclosing the route to identify candidate stations. Candidates are pruned based on the lowest on-route price, and each remaining option is evaluated by recomputing the actual route and integrating fuel and detour costs. The search terminates early when no further cost improvement is possible, reducing API calls while preserving optimality. As a result, the proposed method achieves cost savings compared to conventional approaches. The system is implemented end-to-end, from user input to external navigation app handoff.
 
 ## Key words
 
