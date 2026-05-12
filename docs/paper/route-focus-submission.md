@@ -130,7 +130,7 @@ Table 3. Top-1 recommendation price by scenario
 ![그림 1](figures/result-proposed-system.png)
 
 그림 1. 본 시스템 추천 결과 (사례 1, 동대구역-국립금오공과대학교) - 추천 후보 3곳의 경유 경로 동시 미리보기
-Fig. 1. Recommendation result of the proposed system (Case 1, Dongdaegu Station-Kumoh National Institute of Technology) - simultaneous preview of via-routes for top-3 candidates
+Fig. 1. Recommendation result of the proposed system (Case 1, Dongdaegu Station-Kumoh National Institute of Technology) - simultaneous preview of routes for top-3 candidates
 
 ## Ⅳ. 결 론
 
