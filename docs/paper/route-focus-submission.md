@@ -133,7 +133,7 @@ Fig. 1. Recommendation result of the proposed system (Case 1, Dongdaegu Station-
 
 사용자가 추천 결과 중 하나를 선택하면 그림 2와 같이 외부 내비게이션 앱으로 경유 경로가 전달되어 즉시 길안내가 시작된다.
 
-![그림 2](figures/navigation-handoff.png)
+![그림 2](figures/navigation-integration.png)
 
 그림 2. 선택된 경유 경로의 외부 내비게이션 앱 연동 화면
 Fig. 2. Integration with an external navigation app for the selected route
