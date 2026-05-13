@@ -119,7 +119,7 @@ Table 3. Top-1 recommendation price by scenario
 
 | 번호 | 사례 | 본 시스템 | 오피넷 | 오일나우 |
 |:---:|---|---:|---:|---:|
-| 1 | 중거리 (동대구역-국립금오공과대학교) | 1,964 | 1,992 | 1,992 |
+| 1 | 중거리 (동대구역-국립금오공과대학교) | 1,949 | 1,994 | 1,982 |
 | 2 | 중거리 (잠실역-수원역) | 1,975 | 1,999 | 1,985 |
 | 3 | 장거리 고속도로 (서초IC-서대전IC) | 1,969 | 1,984 | 1,984 |
 | 4 | 지방 도심 (대구역-동대구역) | 1,950 | 2,027 | 2,027 |
@@ -130,6 +130,13 @@ Table 3. Top-1 recommendation price by scenario
 
 그림 1. 본 시스템 추천 결과 (사례 1, 동대구역-국립금오공과대학교) - 추천 후보 3곳의 경유 경로 동시 미리보기
 Fig. 1. Recommendation result of the proposed system (Case 1, Dongdaegu Station-Kumoh National Institute of Technology) - simultaneous preview of routes for top-3 candidates
+
+사용자가 추천 결과 중 하나를 선택하면 그림 2와 같이 외부 내비게이션 앱으로 경유 경로가 전달되어 즉시 길안내가 시작된다.
+
+![그림 2](figures/navigation-handoff.png)
+
+그림 2. 선택된 경유 경로의 외부 내비게이션 앱 연동 화면
+Fig. 2. External navigation app handoff for the selected route
 
 ## Ⅳ. 결 론
 
