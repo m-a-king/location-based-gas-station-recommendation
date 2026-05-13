@@ -15,7 +15,7 @@ Jaejung Jo\*, Hongcheol Lee\*, Gwangcheol Shin\*, and Byoungwoo Oh\*\*
 
 ## Abstract
 
-This paper proposes a method for recommending gas stations along a route by overcoming the limitations of conventional approaches that restrict candidates to those on the base route. The proposed method expands the search space to a minimum bounding rectangle enclosing the route and identifies candidate stations within it. Candidates are pruned based on the lowest on-route price, and each remaining candidate is evaluated by recomputing the actual route and integrating fuel and detour costs. As a result, the proposed method achieves cost savings compared to conventional approaches. The search terminates early when no further cost improvement is possible, reducing API calls while preserving optimality. The system is implemented end-to-end, from user input to external navigation app integration.
+This paper proposes a method for recommending gas stations along a route by overcoming the limitations of conventional approaches that restrict candidates to the base route. The proposed method expands the search space to a minimum bounding rectangle enclosing the route and identifies candidate stations within it. Candidates are pruned based on the lowest on-route price, and each remaining candidate is evaluated by recomputing the actual route and integrating fuel and detour costs. As a result, the proposed method achieves cost savings compared to conventional approaches. The search terminates early when no further cost improvement is possible, reducing API calls while preserving optimality. The system is implemented end-to-end, from user input to external navigation app integration.
 
 ## Key words
 
