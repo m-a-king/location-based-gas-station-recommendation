@@ -136,7 +136,7 @@ Fig. 1. Recommendation result of the proposed system (Case 1, Dongdaegu Station-
 ![그림 2](figures/navigation-integration.png)
 
 그림 2. 선택된 경유 경로의 외부 내비게이션 앱 연동 화면
-Fig. 2. Integration with an external navigation app for the selected route
+Fig. 2. External navigation app integration for the selected route
 
 ## Ⅳ. 결 론
 
