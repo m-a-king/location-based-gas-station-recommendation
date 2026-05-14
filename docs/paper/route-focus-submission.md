@@ -90,7 +90,7 @@ Table 2. Candidate selection stages
 |:---:|---|---|
 | 1 | 확장 영역 후보 수집 | 기본 경로의 MBR + 동적 여유 영역 내 주유소 수집 |
 | 2 | 기준가 상한 적용 | 가격이 기본 경로상 최저가를 초과하지 않는 주유소만 보존 |
-| 3 | 외부 경로 탐색 API 호출 수 상한 적용 | 가격 오름차순 상위 30개 주유소만 보존 |
+| 3 | 경로 탐색 API 호출 수 상한 적용 | 가격 오름차순 상위 30개 주유소만 보존 |
 
 2단계 기준가 상한 적용의 근거는 식 (1)의 모든 항이 비음수이므로 식 (2)가 성립한다는 점이다.
 
@@ -98,7 +98,7 @@ $$
 \text{score}_i \;\geq\; p_i \ell \tag{2}
 $$
 
-점수가 $p_i \ell$ 이상이므로 가격이 경로상 최저가를 넘는 후보는 우회 비용을 0으로 가정해도 경로상 최저가 후보를 이길 수 없다. 다만 경로상 후보가 한 곳도 없는 시나리오에서는 이 상한을 적용하지 않는다. 3단계 외부 경로 탐색 API 호출 수 상한 적용은 잔여 후보가 여전히 많을 경우의 안전장치로, 호출 수를 30회 이내로 제한한다. 이렇게 식 (2)의 수학적 하한과 deviation tolerance[4] 개념이 한 흐름 안에서 결합되어, 외부 경로 탐색 API 호출 비용을 관리하면서도 우수한 후보를 보존한다.
+점수가 $p_i \ell$ 이상이므로 가격이 경로상 최저가를 넘는 후보는 우회 비용을 0으로 가정해도 경로상 최저가 후보를 이길 수 없다. 다만 경로상 후보가 한 곳도 없는 시나리오에서는 이 상한을 적용하지 않는다. 3단계 경로 탐색 API 호출 수 상한 적용은 잔여 후보가 여전히 많을 경우의 안전장치로, 호출 수를 30회 이내로 제한한다. 이렇게 식 (2)의 수학적 하한과 deviation tolerance[4] 개념이 한 흐름 안에서 결합되어, 외부 경로 탐색 API 호출 비용을 관리하면서도 우수한 후보를 보존한다.
 
 ### 3.5 가격 하한 가지치기
 
@@ -128,8 +128,8 @@ Table 3. Top-1 recommendation price by scenario
 
 ![그림 1](figures/result-proposed-system.png)
 
-그림 1. 본 시스템 추천 결과 (사례 1, 동대구역-국립금오공과대학교) - 추천 후보 3곳의 경유 경로 동시 미리보기
-Fig. 1. Recommendation result of the proposed system (Case 1, Dongdaegu Station-Kumoh National Institute of Technology) - simultaneous preview of routes for top-3 candidates
+그림 1. 본 시스템 추천 결과 (사례 1) - 후보 3곳의 경유 경로 비교
+Fig. 1. Recommendation result of the proposed system (Case 1) - comparison of routes for top-3 candidates
 
 사용자가 추천 결과 중 하나를 선택하면 그림 2와 같이 외부 내비게이션 앱으로 경유 경로가 전달되어 즉시 길안내가 시작된다.
 
