@@ -52,7 +52,7 @@ Table 1. Service comparison
 
 본 연구는 Gas Station Problem[3]의 주유 의사결정과 deviation tolerance[4][5]를 통합해, 후보 주유소를 경유지로 둔 경유 경로 재탐색으로 비용 최적 주유소 추천을 정식화한다.
 
-## Ⅲ. 경유 경로 기반 주유소 추천 시스템
+## Ⅲ. 경유 경로 재탐색을 통한 비용 최적 주유소 추천
 
 ### 3.1 문제 정의
 
