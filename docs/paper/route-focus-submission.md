@@ -33,7 +33,7 @@ gas station, cost-optimal routing, minimum bounding rectangle, location-based se
 
 ## Ⅱ. 관련 연구
 
-기존 주유소 정보 서비스로 대표적인 오일나우(OilNow)와 오피넷(Opinet)은 사용자 위치 또는 기본 경로를 기준으로 주유소 정보를 제공한다. 주요 기능 비교는 표 1과 같다.
+기존의 주유소 정보 서비스로 대표적인 오일나우(OilNow)와 오피넷(Opinet)은 사용자 위치 또는 기본 경로를 기준으로 주유소 정보를 제공한다. 주요 기능 비교는 표 1과 같다.
 
 표 1. 서비스 기능 비교
 Table 1. Service comparison
