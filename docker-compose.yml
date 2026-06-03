@@ -10,6 +10,8 @@ services:
       OPINET_API_KEY: ${OPINET_API_KEY}
       ITS_API_KEY: ${ITS_API_KEY}
       KAKAO_API_KEY: ${KAKAO_API_KEY}
+      KAKAO_OAUTH_CLIENT_ID: ${KAKAO_OAUTH_CLIENT_ID}
+      KAKAO_OAUTH_CLIENT_SECRET: ${KAKAO_OAUTH_CLIENT_SECRET}
     depends_on:
       db:
         condition: service_healthy
