@@ -11,7 +11,7 @@ import org.springframework.security.web.SecurityFilterChain
 class SecurityConfig {
 
     @Bean
-    fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
+    fun securityFilterChain(http: HttpSecurity, oAuthUserService: OAuthUserService): SecurityFilterChain {
         http
             .csrf { it.disable() }
             .authorizeHttpRequests {
@@ -25,10 +25,11 @@ class SecurityConfig {
                         "/swagger-ui/**",
                         "/v3/api-docs/**"
                     ).permitAll()
-                    .requestMatchers("/auth/me").authenticated()
+                    .requestMatchers("/auth/me", "/users/**").authenticated()
                     .anyRequest().permitAll()
             }
             .oauth2Login {
+                it.userInfoEndpoint { userInfo -> userInfo.oidcUserService(oAuthUserService) }
                 it.defaultSuccessUrl("/auth/me", true)
             }
             .logout {
