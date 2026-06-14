@@ -38,6 +38,12 @@ spring:
             user-name-attribute: sub
             jwk-set-uri: https://kauth.kakao.com/.well-known/jwks.json
 
+app:
+  jwt:
+    # 운영에서는 반드시 JWT_SECRET 환경변수로 주입한다(아래 기본값은 로컬 개발 전용).
+    secret: ${JWT_SECRET:local-dev-only-jwt-secret-change-me-in-production-0123456789}
+    expiration: ${JWT_EXPIRATION:P7D}
+
 opinet:
   api-key: ${OPINET_API_KEY}
   user-id: ${OPINET_USER_ID}

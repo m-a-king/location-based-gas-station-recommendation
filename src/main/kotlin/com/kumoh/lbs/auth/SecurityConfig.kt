@@ -16,7 +16,11 @@ class SecurityConfig {
     private lateinit var frontendUrl: String
 
     @Bean
-    fun securityFilterChain(http: HttpSecurity, oAuthUserService: OAuthUserService): SecurityFilterChain {
+    fun securityFilterChain(
+        http: HttpSecurity,
+        oAuthUserService: OAuthUserService,
+        appJwtProvider: AppJwtProvider
+    ): SecurityFilterChain {
         http
             .csrf { it.disable() }
             .authorizeHttpRequests {
@@ -36,15 +40,15 @@ class SecurityConfig {
             .oauth2Login {
                 it.userInfoEndpoint { userInfo -> userInfo.oidcUserService(oAuthUserService) }
                 it.successHandler { _, response, authentication ->
+                    // 카카오 ID 토큰을 그대로 넘기지 않고, 카카오 sub로 자체 JWT를 발급해 전달한다.
                     val oidcUser = authentication.principal as OidcUser
-                    val token = oidcUser.idToken.tokenValue
+                    val token = appJwtProvider.issue(oidcUser.subject)
                     response.sendRedirect("$frontendUrl/oauth/callback?token=$token")
                 }
             }
+            // Bearer 검증은 카카오 JWKS가 아니라 JwtConfig의 자체 JwtDecoder(우리 secret)를 사용한다.
             .oauth2ResourceServer { rs ->
-                rs.jwt { jwt ->
-                    jwt.jwkSetUri("https://kauth.kakao.com/.well-known/jwks.json")
-                }
+                rs.jwt { }
             }
             .logout {
                 it.logoutSuccessUrl("/").permitAll()
