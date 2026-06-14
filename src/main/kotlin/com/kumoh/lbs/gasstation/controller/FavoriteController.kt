@@ -3,6 +3,7 @@ package com.kumoh.lbs.gasstation.controller
 import com.kumoh.lbs.auth.CurrentUserProvider
 import com.kumoh.lbs.gasstation.service.FavoriteService
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.HttpStatus
 import org.springframework.security.core.annotation.AuthenticationPrincipal
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 
 @Tag(name = "주유소 즐겨찾기", description = "로그인 사용자의 주유소 즐겨찾기 추가·삭제·조회 API")
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 @RequestMapping("/users/me/favorites")
 class FavoriteController(
