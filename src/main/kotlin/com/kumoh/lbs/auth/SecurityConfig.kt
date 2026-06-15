@@ -25,6 +25,9 @@ class SecurityConfig {
             .csrf { it.disable() }
             .authorizeHttpRequests {
                 it
+                    // 추천은 로그인 사용자만 — 연비·유종을 프로필에서 읽으므로 인증 필수.
+                    // (구체 패턴이라 아래 /api/** permitAll보다 먼저 평가돼야 한다.)
+                    .requestMatchers("/api/gas-stations/recommendations/**").authenticated()
                     .requestMatchers(
                         "/",
                         "/error",

@@ -1,6 +1,8 @@
 package com.kumoh.lbs.gasstation.controller
 
 import com.kumoh.lbs.TestcontainersConfiguration
+import com.kumoh.lbs.auth.User
+import com.kumoh.lbs.auth.UserRepository
 import com.kumoh.lbs.gasstation.client.KakaoDirectionsClient
 import com.kumoh.lbs.gasstation.domain.FuelType
 import com.kumoh.lbs.gasstation.domain.GasStation
@@ -20,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.context.annotation.Import
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
@@ -27,6 +30,10 @@ import org.springframework.test.web.servlet.get
 import java.time.LocalDate
 import kotlin.math.abs
 
+/**
+ * 경로 추천 E2E. 추천 API는 인증 필수이며 유종·연비는 로그인 사용자 프로필에서 읽으므로,
+ * jwt() 인증 + 차량 프로필(GASOLINE, 연비 10.0)이 입력된 User를 시드한다.
+ */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -35,7 +42,8 @@ class RouteGasStationE2eTest(
     val mockMvc: MockMvc,
     @MockitoBean val kakaoDirectionsClient: KakaoDirectionsClient,
     @Autowired val gasStationRepository: GasStationRepository,
-    @Autowired val gasStationPriceRepository: GasStationPriceRepository
+    @Autowired val gasStationPriceRepository: GasStationPriceRepository,
+    @Autowired val userRepository: UserRepository
 ) {
 
     private val baseRoute = route(distanceMeters = 15000)
@@ -49,12 +57,14 @@ class RouteGasStationE2eTest(
     @BeforeEach
     fun setUp() {
         whenever(kakaoDirectionsClient.searchRoute(any(), any())).thenReturn(baseRoute)
+        userRepository.save(User(kakaoSub = KAKAO_SUB, name = "테스터", fuelType = FuelType.GASOLINE, fuelEfficiency = 10.0))
     }
 
     @AfterEach
     fun tearDown() {
         gasStationPriceRepository.deleteAll()
         gasStationRepository.deleteAll()
+        userRepository.deleteAll()
     }
 
     @Test
@@ -72,13 +82,12 @@ class RouteGasStationE2eTest(
         // 우회 상한 = min(15000 × 0.3, 10000) = 4500m — OFF_ROUTE 우회 4000m 통과
         // OFF_ROUTE가 가장 싸고 우회 상한 이내이므로 총 비용 기준 1위
         mockMvc.get("/api/gas-stations/recommendations/route") {
+            with(jwt().jwt { it.subject(KAKAO_SUB) })
             param("originLongitude", "127.0")
             param("originLatitude", "37.0")
             param("destinationLongitude", "127.1")
             param("destinationLatitude", "37.1")
-            param("fuelType", "GASOLINE")
             param("refuelLiters", "40.0")
-            param("fuelEfficiency", "10.0")
             param("limit", "3")
         }.andExpect {
             status { isOk() }
@@ -99,13 +108,12 @@ class RouteGasStationE2eTest(
             .thenReturn(route(distanceMeters = 21000))
 
         mockMvc.get("/api/gas-stations/recommendations/route") {
+            with(jwt().jwt { it.subject(KAKAO_SUB) })
             param("originLongitude", "127.0")
             param("originLatitude", "37.0")
             param("destinationLongitude", "127.1")
             param("destinationLatitude", "37.1")
-            param("fuelType", "GASOLINE")
             param("refuelLiters", "40.0")
-            param("fuelEfficiency", "10.0")
             param("limit", "3")
         }.andExpect {
             status { isOk() }
@@ -122,13 +130,12 @@ class RouteGasStationE2eTest(
         whenever(kakaoDirectionsClient.searchRouteViaWaypoint(any(), any(), any())).thenReturn(null)
 
         mockMvc.get("/api/gas-stations/recommendations/route") {
+            with(jwt().jwt { it.subject(KAKAO_SUB) })
             param("originLongitude", "127.0")
             param("originLatitude", "37.0")
             param("destinationLongitude", "127.1")
             param("destinationLatitude", "37.1")
-            param("fuelType", "GASOLINE")
             param("refuelLiters", "40.0")
-            param("fuelEfficiency", "10.0")
             param("limit", "2")
         }.andExpect {
             status { isOk() }
@@ -141,13 +148,12 @@ class RouteGasStationE2eTest(
         whenever(kakaoDirectionsClient.searchRoute(any(), any())).thenReturn(null)
 
         mockMvc.get("/api/gas-stations/recommendations/route") {
+            with(jwt().jwt { it.subject(KAKAO_SUB) })
             param("originLongitude", "127.0")
             param("originLatitude", "37.0")
             param("destinationLongitude", "127.1")
             param("destinationLatitude", "37.1")
-            param("fuelType", "GASOLINE")
             param("refuelLiters", "40.0")
-            param("fuelEfficiency", "10.0")
             param("limit", "3")
         }.andExpect {
             status { isInternalServerError() }
@@ -158,13 +164,12 @@ class RouteGasStationE2eTest(
     @Test
     fun `경로 상 주유소가 없으면 빈 배열을 반환한다`() {
         mockMvc.get("/api/gas-stations/recommendations/route") {
+            with(jwt().jwt { it.subject(KAKAO_SUB) })
             param("originLongitude", "127.0")
             param("originLatitude", "37.0")
             param("destinationLongitude", "127.1")
             param("destinationLatitude", "37.1")
-            param("fuelType", "DIESEL")
             param("refuelLiters", "30.0")
-            param("fuelEfficiency", "15.0")
             param("limit", "3")
         }.andExpect {
             status { isOk() }
@@ -180,13 +185,12 @@ class RouteGasStationE2eTest(
             .thenReturn(route(distanceMeters = 15300))
 
         mockMvc.get("/api/gas-stations/recommendations/route") {
+            with(jwt().jwt { it.subject(KAKAO_SUB) })
             param("originLongitude", "127.0")
             param("originLatitude", "37.0")
             param("destinationLongitude", "127.1")
             param("destinationLatitude", "37.1")
-            param("fuelType", "GASOLINE")
             param("refuelLiters", "40.0")
-            param("fuelEfficiency", "10.0")
             param("limit", "3")
         }.andExpect {
             status { isOk() }
@@ -203,13 +207,12 @@ class RouteGasStationE2eTest(
             .thenReturn(route(distanceMeters = 15200))
 
         mockMvc.get("/api/gas-stations/recommendations/route") {
+            with(jwt().jwt { it.subject(KAKAO_SUB) })
             param("originLongitude", "127.0")
             param("originLatitude", "37.0")
             param("destinationLongitude", "127.1")
             param("destinationLatitude", "37.1")
-            param("fuelType", "GASOLINE")
             param("refuelLiters", "40.0")
-            param("fuelEfficiency", "10.0")
             param("limit", "1")
         }.andExpect {
             status { isOk() }
@@ -220,6 +223,20 @@ class RouteGasStationE2eTest(
             jsonPath("$[0].estimatedFuelCost") { isNumber() }
             jsonPath("$[0].estimatedDetourCost") { isNumber() }
             jsonPath("$[0].estimatedSavings") { isNumber() }
+        }
+    }
+
+    @Test
+    fun `로그인하지 않으면 401을 반환한다`() {
+        mockMvc.get("/api/gas-stations/recommendations/route") {
+            param("originLongitude", "127.0")
+            param("originLatitude", "37.0")
+            param("destinationLongitude", "127.1")
+            param("destinationLatitude", "37.1")
+            param("refuelLiters", "40.0")
+            param("limit", "3")
+        }.andExpect {
+            status { isUnauthorized() }
         }
     }
 
@@ -252,5 +269,9 @@ class RouteGasStationE2eTest(
             Coordinate.fromWgs84(Coordinate.Wgs84(37.1, 127.1))
         )
         return Route(polyline = polyline, distanceMeters = distanceMeters)
+    }
+
+    companion object {
+        private const val KAKAO_SUB = "route-e2e-user"
     }
 }

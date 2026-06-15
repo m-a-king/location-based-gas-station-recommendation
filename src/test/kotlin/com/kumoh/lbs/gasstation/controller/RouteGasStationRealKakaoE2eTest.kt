@@ -1,6 +1,8 @@
 package com.kumoh.lbs.gasstation.controller
 
 import com.kumoh.lbs.TestcontainersConfiguration
+import com.kumoh.lbs.auth.User
+import com.kumoh.lbs.auth.UserRepository
 import com.kumoh.lbs.gasstation.domain.FuelType
 import com.kumoh.lbs.gasstation.domain.GasStation
 import com.kumoh.lbs.gasstation.domain.GasStationPrice
@@ -8,16 +10,17 @@ import com.kumoh.lbs.gasstation.domain.GasStationPriceId
 import com.kumoh.lbs.gasstation.repository.GasStationPriceRepository
 import com.kumoh.lbs.gasstation.repository.GasStationRepository
 import io.kotest.matchers.comparables.shouldBeLessThan
-import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldEndWith
 import io.kotest.matchers.string.shouldStartWith
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.context.annotation.Import
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
@@ -35,6 +38,7 @@ import kotlin.system.measureTimeMillis
  * - 로컬 수동 실행: @Disabled 주석 처리 후 실행 (또는 IDE에서 개별 실행)
  * - 환경변수 KAKAO_API_KEY 필요 (.env.local이 SessionStart 훅에 의해 로드됨)
  *
+ * 추천 API는 인증 필수이며 유종·연비는 프로필에서 읽으므로 jwt() 인증 + 차량 프로필 User를 시드한다.
  * 좌표: 서울시청(37.5665, 126.9780) → 강남역(37.4979, 127.0276) 약 8~10km 경로.
  * 주유소 픽스처는 경로 주변에 합성한 좌표라 OPINET 실데이터는 아님 — 점수 계산 경로만 검증.
  */
@@ -46,7 +50,8 @@ import kotlin.system.measureTimeMillis
 class RouteGasStationRealKakaoE2eTest(
     val mockMvc: MockMvc,
     @Autowired val gasStationRepository: GasStationRepository,
-    @Autowired val gasStationPriceRepository: GasStationPriceRepository
+    @Autowired val gasStationPriceRepository: GasStationPriceRepository,
+    @Autowired val userRepository: UserRepository
 ) {
 
     // 서울시청 → 강남역 (실제 교통망 존재)
@@ -64,10 +69,16 @@ class RouteGasStationRealKakaoE2eTest(
         SeedStation(id = "REAL_05", name = "실제테스트주유소5", lat = 37.5100, lng = 127.0250, price = 1600)
     )
 
+    @BeforeEach
+    fun setUp() {
+        userRepository.save(User(kakaoSub = KAKAO_SUB, name = "테스터", fuelType = FuelType.GASOLINE, fuelEfficiency = 10.0))
+    }
+
     @AfterEach
     fun tearDown() {
         gasStationPriceRepository.deleteAll()
         gasStationRepository.deleteAll()
+        userRepository.deleteAll()
     }
 
     @Test
@@ -76,13 +87,12 @@ class RouteGasStationRealKakaoE2eTest(
 
         val elapsed = measureTimeMillis {
             mockMvc.get("/api/gas-stations/recommendations/route") {
+                with(jwt().jwt { it.subject(KAKAO_SUB) })
                 param("originLatitude", originLat.toString())
                 param("originLongitude", originLng.toString())
                 param("destinationLatitude", destLat.toString())
                 param("destinationLongitude", destLng.toString())
-                param("fuelType", "GASOLINE")
                 param("refuelLiters", "40.0")
-                param("fuelEfficiency", "10.0")
                 param("limit", "3")
             }.andExpect {
                 status { isOk() }
@@ -108,13 +118,12 @@ class RouteGasStationRealKakaoE2eTest(
         seedFixtures()
 
         val mvcResult = mockMvc.get("/api/gas-stations/recommendations/route") {
+            with(jwt().jwt { it.subject(KAKAO_SUB) })
             param("originLatitude", originLat.toString())
             param("originLongitude", originLng.toString())
             param("destinationLatitude", destLat.toString())
             param("destinationLongitude", destLng.toString())
-            param("fuelType", "GASOLINE")
             param("refuelLiters", "40.0")
-            param("fuelEfficiency", "10.0")
             param("limit", "2")
         }.andExpect { status { isOk() } }.andReturn()
 
@@ -149,4 +158,8 @@ class RouteGasStationRealKakaoE2eTest(
         val lng: Double,
         val price: Int
     )
+
+    companion object {
+        private const val KAKAO_SUB = "real-kakao-e2e-user"
+    }
 }
