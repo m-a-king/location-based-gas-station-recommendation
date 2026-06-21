@@ -38,7 +38,7 @@ class GasStationController(
         @Parameter(description = "위도 (WGS84)", example = "37.5") @RequestParam @DecimalMin("-90.0") @DecimalMax("90.0") latitude: Double,
         @Parameter(description = "경도 (WGS84)", example = "127.0") @RequestParam @DecimalMin("-180.0") @DecimalMax("180.0") longitude: Double,
         @Parameter(description = "탐색 반경 (m, 최대 5000)", example = "3000") @RequestParam @Positive @Max(5000) radius: Int,
-        @Parameter(description = "주유량 (L)", example = "40.0") @RequestParam @Positive refuelLiters: Double,
+        @Parameter(description = "주유량 (L, 미입력 시 기본 50)", example = "50.0") @RequestParam(defaultValue = "50.0") @Positive refuelLiters: Double,
         @Parameter(description = "추천 개수 (최대 3)", example = "3") @RequestParam @Positive @Max(3) limit: Int
     ): List<GasStationResponse> {
         val (fuelType, fuelEfficiency) = resolveProfile(principal)
@@ -56,7 +56,7 @@ class GasStationController(
         @Parameter(description = "출발지 경도 (WGS84)", example = "127.0") @RequestParam @DecimalMin("-180.0") @DecimalMax("180.0") originLongitude: Double,
         @Parameter(description = "도착지 위도 (WGS84)", example = "35.1") @RequestParam @DecimalMin("-90.0") @DecimalMax("90.0") destinationLatitude: Double,
         @Parameter(description = "도착지 경도 (WGS84)", example = "129.0") @RequestParam @DecimalMin("-180.0") @DecimalMax("180.0") destinationLongitude: Double,
-        @Parameter(description = "주유량 (L)", example = "40.0") @RequestParam @Positive refuelLiters: Double,
+        @Parameter(description = "주유량 (L, 미입력 시 기본 50)", example = "50.0") @RequestParam(defaultValue = "50.0") @Positive refuelLiters: Double,
         @Parameter(description = "추천 개수 (최대 3)", example = "3") @RequestParam @Positive @Max(3) limit: Int
     ): List<GasStationResponse> {
         val (fuelType, fuelEfficiency) = resolveProfile(principal)
@@ -67,14 +67,21 @@ class GasStationController(
         return GasStationResponse.fromList(result.scored, result.savingsBaselinePrice)
     }
 
-    /** 로그인 사용자의 차량 프로필에서 유종·연비를 읽는다. 미입력 시 400으로 안내한다. */
+    /**
+     * 로그인 사용자의 차량 프로필에서 유종·연비를 읽되, 미입력 시 기본값으로 대체한다.
+     * 프로필 입력을 강제하지 않아 누구나 바로 추천을 받을 수 있다(유연성 우선).
+     * - 유종 미입력 → 휘발유(가장 보편적이며 FavoriteService 폴백과 일치). 경유·LPG 운전자는 입력 전까지 휘발유 가격 기준.
+     * - 연비 미입력 → 10km/L.
+     */
     private fun resolveProfile(principal: Any): Pair<FuelType, Double> {
         val user = currentUserProvider.resolve(principal)
-        val fuelType = user.fuelType
-        val fuelEfficiency = user.fuelEfficiency
-        require(fuelType != null && fuelEfficiency != null) {
-            "차량 프로필(연비·유종)을 먼저 입력해야 추천을 받을 수 있습니다."
-        }
+        val fuelType = user.fuelType ?: DEFAULT_FUEL_TYPE
+        val fuelEfficiency = user.fuelEfficiency ?: DEFAULT_FUEL_EFFICIENCY
         return fuelType to fuelEfficiency
+    }
+
+    companion object {
+        private val DEFAULT_FUEL_TYPE = FuelType.GASOLINE
+        private const val DEFAULT_FUEL_EFFICIENCY = 10.0
     }
 }

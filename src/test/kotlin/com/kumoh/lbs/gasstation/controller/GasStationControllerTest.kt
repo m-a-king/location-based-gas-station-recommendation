@@ -9,6 +9,8 @@ import com.kumoh.lbs.gasstation.service.GasStationRouteRecommender
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.eq
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.boot.security.oauth2.client.autoconfigure.OAuth2ClientAutoConfiguration
 import org.springframework.boot.security.oauth2.client.autoconfigure.servlet.OAuth2ClientWebSecurityAutoConfiguration
@@ -74,6 +76,42 @@ class GasStationControllerTest(
         }.andExpect {
             status { isBadRequest() }
         }
+    }
+
+    @Test
+    fun `프로필 미입력 시 기본값(휘발유·연비10)으로 추천을 호출한다`() {
+        whenever(currentUserProvider.resolve(any()))
+            .thenReturn(User(kakaoSub = "no-profile", fuelType = null, fuelEfficiency = null))
+
+        mockMvc.get("/api/gas-stations/recommendations/radius") {
+            with(jwt().jwt { it.subject("no-profile") })
+            param("latitude", "37.0")
+            param("longitude", "127.0")
+            param("radius", "5000")
+            param("refuelLiters", "40.0")
+            param("limit", "3")
+        }.andExpect {
+            status { isOk() }
+        }
+
+        // 프로필이 비어 있어도 유종=휘발유, 연비=10.0 기본값으로 추천이 호출돼야 한다.
+        verify(radiusRecommender).recommend(any(), eq(5000), eq(FuelType.GASOLINE), eq(40.0), eq(10.0), eq(3))
+    }
+
+    @Test
+    fun `주유량 미입력 시 기본 50L로 추천을 호출한다`() {
+        mockMvc.get("/api/gas-stations/recommendations/radius") {
+            with(jwt().jwt { it.subject("test-user") })
+            param("latitude", "37.0")
+            param("longitude", "127.0")
+            param("radius", "5000")
+            // refuelLiters 미입력 → 기본 50.0으로 바인딩돼야 한다.
+            param("limit", "3")
+        }.andExpect {
+            status { isOk() }
+        }
+
+        verify(radiusRecommender).recommend(any(), eq(5000), eq(FuelType.GASOLINE), eq(50.0), eq(10.0), eq(3))
     }
 
     // 미인증 401은 전체 시큐리티 체인이 도는 E2E(GasStation/RouteGasStationE2eTest)에서 검증한다.

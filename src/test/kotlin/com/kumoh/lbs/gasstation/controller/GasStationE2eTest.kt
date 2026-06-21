@@ -138,8 +138,11 @@ class GasStationE2eTest(
     }
 
     @Test
-    fun `차량 프로필이 없는 사용자가 추천을 요청하면 400을 반환한다`() {
+    fun `차량 프로필이 없는 사용자는 기본값(휘발유)으로 추천받는다`() {
         userRepository.save(User(kakaoSub = "no-profile-sub"))
+        // 프로필이 없으면 유종은 휘발유로 기본 조회된다. 이 스텁이 매칭돼 결과가 나오면 기본 유종이 GASOLINE이라는 증거.
+        whenever(opinetClient.searchByRadius(any(), eq(5000), eq(FuelType.GASOLINE), eq(SortType.PRICE)))
+            .thenReturn(listOf(cheapStation, closeStation, expensiveStation))
 
         mockMvc.get("/api/gas-stations/recommendations/radius") {
             with(jwt().jwt { it.subject("no-profile-sub") })
@@ -149,8 +152,8 @@ class GasStationE2eTest(
             param("refuelLiters", "40.0")
             param("limit", "3")
         }.andExpect {
-            status { isBadRequest() }
-            jsonPath("$.detail") { exists() }
+            status { isOk() }
+            jsonPath("$.length()") { value(3) }
         }
     }
 
