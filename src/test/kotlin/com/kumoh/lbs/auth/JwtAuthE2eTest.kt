@@ -15,6 +15,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
+import org.springframework.test.web.servlet.post
 import org.springframework.transaction.annotation.Transactional
 import javax.crypto.spec.SecretKeySpec
 import java.time.Instant
@@ -66,6 +67,14 @@ class JwtAuthE2eTest(
         mockMvc.get("/users/me/favorites") {
             header("Authorization", "Bearer not-a-real-jwt")
         }.andExpect { status { isUnauthorized() } }
+    }
+
+    @Test
+    fun `인증 없이 배치 import를 호출하면 401을 반환한다`() {
+        // 무인증 호출은 시큐리티 필터에서 401로 막혀 컨트롤러(실제 OPINET 다운로드)에 닿지 않는다.
+        // /api/batch/** 가 /api/** permitAll보다 먼저 authenticated()로 평가되는지 회귀 검증.
+        mockMvc.post("/api/batch/opinet/import")
+            .andExpect { status { isUnauthorized() } }
     }
 
     companion object {
